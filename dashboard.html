@@ -30,6 +30,10 @@
     @media (min-width: 700px) { .charts { grid-template-columns: 1fr 1fr; } }
     .chartbox { position: relative; height: 260px; }
     .tablewrap { overflow-x: auto; }
+    .heat td.c, .heat th.c { text-align: center; min-width: 64px; }
+    .heat td.c { font-weight: bold; }
+    .legend { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #4b5563; margin-top: 8px; }
+    .legend span.bar { flex: 0 0 120px; height: 12px; border-radius: 6px; background: linear-gradient(to right, #fff, #b91c1c); border: 1px solid #d1d5db; }
     table { width: 100%; border-collapse: collapse; font-size: 15px; }
     th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
     .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; }
@@ -74,6 +78,18 @@
       <div class="card"><h2>Area-wise</h2><div class="chartbox"><canvas id="cArea"></canvas></div></div>
       <div class="card"><h2>Department-wise</h2><div class="chartbox"><canvas id="cDept"></canvas></div></div>
       <div class="card"><h2>Officer-wise pending</h2><div class="chartbox"><canvas id="cOff"></canvas></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Area-wise heat map</h2>
+      <label for="heatmode" style="font-size:14px;font-weight:bold">Count</label>
+      <select id="heatmode" style="margin-bottom:10px">
+        <option value="all">All grievances received</option>
+        <option value="pending">Pending only</option>
+        <option value="overdue">Overdue only</option>
+      </select>
+      <div class="tablewrap"><table class="heat" id="heat"></table></div>
+      <div class="legend">Fewer <span class="bar"></span> More (darker red = more grievances)</div>
     </div>
 
     <div class="card">
@@ -152,8 +168,39 @@
       });
     }
 
+    function renderHeat(list) {
+      var mode = document.getElementById("heatmode").value;
+      var use = list.filter(function (g) {
+        return mode === "all" || (mode === "pending" && g.status !== "Resolved") || (mode === "overdue" && isOverdue(g));
+      });
+      var cats = ["Land and R&R", "Employment and HR", "Finance", "Project / Area", "Other"];
+      var areas = {};
+      use.forEach(function (g) {
+        var a = g.location || "Not set";
+        areas[a] = areas[a] || { total: 0 };
+        areas[a][g.category] = (areas[a][g.category] || 0) + 1;
+        areas[a].total++;
+      });
+      var names = Object.keys(areas).sort(function (a, b) { return areas[b].total - areas[a].total; });
+      var max = 0;
+      names.forEach(function (a) { cats.forEach(function (c) { max = Math.max(max, areas[a][c] || 0); }); });
+      function cell(n, top) {
+        if (!n) return "<td class='c' style='color:#9ca3af'>0</td>";
+        var k = n / top;
+        var r = Math.round(255 - k * (255 - 185)), gb = Math.round(255 - k * (255 - 28));
+        return "<td class='c' style='background:rgb(" + r + "," + gb + "," + gb + ");color:" + (k > 0.5 ? "#fff" : "#1f2937") + "'>" + n + "</td>";
+      }
+      var head = "<tr><th>Area</th>" + cats.map(function (c) { return "<th class='c'>" + esc(c) + "</th>"; }).join("") + "<th class='c'>Total</th></tr>";
+      var body = names.length ? names.map(function (a) {
+        return "<tr><td>" + esc(a) + "</td>" + cats.map(function (c) { return cell(areas[a][c] || 0, max); }).join("") +
+          cell(areas[a].total, areas[names[0]].total) + "</tr>";
+      }).join("") : "<tr><td colspan='" + (cats.length + 2) + "'>No grievances to show.</td></tr>";
+      document.getElementById("heat").innerHTML = head + body;
+    }
+
     function render() {
       var list = filtered();
+      renderHeat(list);
       var pending = list.filter(function (g) { return g.status !== "Resolved"; });
       var resolved = list.filter(function (g) { return g.status === "Resolved"; });
       var overdue = list.filter(isOverdue);
@@ -210,6 +257,7 @@
     }
 
     document.getElementById("apply").addEventListener("click", render);
+    document.getElementById("heatmode").addEventListener("change", render);
     document.getElementById("reset").addEventListener("click", function () {
       document.getElementById("from").value = ""; document.getElementById("to").value = ""; render();
     });
