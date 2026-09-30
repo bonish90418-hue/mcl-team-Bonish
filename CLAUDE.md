@@ -40,7 +40,8 @@
 8. If anything fails, show a friendly message on the page that also includes
    the actual error text, so we can pass it on.
 9. Every page must work well on a mobile phone: large buttons, readable text,
-   no sideways scrolling. Use the same header and menu on every page.
+   no sideways scrolling. Use the same header and menu on every page (header.js
+   and site.css make this automatic - change them, not each page).
 10. Never delete config.js or CLAUDE.md.
 
 ## Database rules
@@ -79,7 +80,7 @@
 - Problem: Grievances reach many offices, so there is no single record, no tracking of delays and no combined report.
 - Who records / who decides: Anyone (or an office official) records a grievance; officers and Area/HQ heads decide and monitor.
 - Table name and columns: grievances - id, created_at, grievance_no (auto), complainant_name, contact, stakeholder_category, neis_no, address, location, category, subject, description, preferred_mode, registration_mode, submission_date, urgency, status, department (auto), assigned_officer, due_date (auto SLA), escalation_level (1-4), reopened, remarks, resolved_at
-- Pages: index.html = entry page; dashboard.html = dashboard
+- Pages: index.html = entry page (Home, Register Grievance, View Status); dashboard.html = dashboard; officer.html = officer page (passcode lock, NOT in the menu)
 
 ## Progress Log (newest entry at the bottom)
 - Phase 0 (starter): placeholder index.html, config.js without settings and
@@ -118,3 +119,4 @@
 - Disposal reply search (Claude): officer.html has a "Disposal reply" box (words from the final reply; capitals do not matter) above the officer box. There is no separate reply column, so the tool searches only the remark entries that were saved together with the change to Resolved on the update panel. Grievances marked Resolved directly in Supabase, or resolved before a remark was added, have no reply text and will not be found. "Clear all filters" clears it. No SQL change.
 - Settings filled in (Claude): config.js now has the Project URL and the publishable key (both safe to be public). Next: merge to main, Data Keeper runs 01 to 04 SQL files in order, then test end to end on the live site.
 - Officer page passcode lock (Claude): officer.html now shows a passcode box first; the update tools and data load only after the right passcode is typed (remembered until the browser tab is closed; a 'Lock this page' button at the bottom locks it again). One passcode, given to one person. Only a scrambled hash (PBKDF2, 200000 rounds) and salt are in config.js (OFFICER_LOCK); the passcode itself is not stored anywhere in the code. Wrong tries wait 1.5 seconds. Team decision: it is a soft lock, not real security - the database is still readable and updatable by anyone with the link and our public key, the Dashboard still shows summary data, and the menu link to the Officer page stays visible. Real protection needs Supabase Auth and new SQL. To change the passcode, ask Claude for a new salt and hash. No SQL change.
+- New look and hidden officer page (Claude): all pages now share header.js (header with MCL logo and the title "MCL Grievance Redressal Forum", purple menu bar, footer) and site.css (olive panel headings, purple buttons), following the EPFiGMS-style layout the team showed. Menu: Home, Register Grievance, View Status, Dashboard. index.html is now three sections chosen by the menu (index.html#home, #register, #status) with a new Home/About page. The Officer page link is REMOVED from every menu and from the dashboard; the authorised officer opens officer.html directly (bookmark it). The logo is read from logo.png in the top folder; until the team uploads the real MCL logo as logo.png, a simple blue MCL badge is shown. No SQL change. Known problems: hiding the link is not security (the passcode lock is the only protection); 'Send Reminder' and 'Upload Grievance Document' from the reference site are not built; language switch not built.
