@@ -7,12 +7,8 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
-    header { background: #111827; color: #fff; padding: 12px 16px; }
-    header h1 { margin: 0 0 8px; font-size: 18px; }
-    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
-            border-radius: 8px; background: #374151; margin-right: 6px; font-size: 16px; }
-    nav a.active { background: #c2410c; }
-    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    main { max-width: 900px; margin: 0 auto; padding: 16px; }
+    #sec-register .card, #sec-status .card { max-width: 680px; margin-left: auto; margin-right: auto; }
     .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
     label { display: block; font-weight: bold; margin: 14px 0 4px; }
     input, select, textarea { width: 100%; padding: 12px; font-size: 17px; border: 1px solid #9ca3af;
@@ -32,17 +28,37 @@
     .step.now { background: #c2410c; color: #fff; font-weight: bold; }
     .kv { margin: 4px 0; }
   </style>
+  <link rel="stylesheet" href="site.css">
 </head>
 <body>
-  <header>
-    <h1>MCL Grievance Management</h1>
-    <nav>
-      <a href="index.html" class="active">Register</a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="officer.html">Officer page</a>
-    </nav>
-  </header>
+  <script src="header.js" data-active="home"></script>
   <main>
+    <section id="sec-home">
+      <div class="card">
+        <h2>About MCL Grievance Redressal Forum</h2>
+        <p class="fraud">PREVENT FRAUD! This is a practice tool. Use MADE-UP data only. Never type real passwords, bank details, Aadhaar or personal numbers.</p>
+        <p>The MCL Grievance Redressal Forum is one place to lodge, track and settle grievances for Mahanadi Coalfields Limited.
+        Grievances can be lodged by employees, retired employees, land oustees, project-affected persons, local residents,
+        contractors, vendors, unions and the general public. Each grievance goes to the concerned Area and department.</p>
+        <p><b>The forum has these features:</b></p>
+        <ul class="ticks">
+          <li>Grievance can be lodged from a computer or a mobile phone</li>
+          <li>A unique Grievance ID is created automatically</li>
+          <li>Grievances are sorted by category and department</li>
+          <li>Fixed time limit (SLA) for each category</li>
+          <li>Automatic escalation to higher levels when a grievance is late</li>
+          <li>View current status of a grievance using the Grievance ID</li>
+          <li>Upload supporting documents (PDF, JPG or PNG)</li>
+          <li>Warning if the same grievance may already exist</li>
+          <li>Management dashboard with charts, heat map and reports</li>
+          <li>Reports can be downloaded as Excel or PDF</li>
+        </ul>
+        <a class="bigbtn" href="#register">Register a grievance</a>
+        <a class="bigbtn alt" href="#status">View status of my grievance</a>
+      </div>
+    </section>
+
+    <section id="sec-register" hidden>
     <div class="card">
       <h2>Register a grievance</h2>
       <p class="note">Practice tool. Use MADE-UP data only. No real names, phone numbers or employee IDs.</p>
@@ -114,7 +130,10 @@
       <div id="result" role="status"></div>
     </div>
 
-    <div class="card" id="track" style="margin-top:16px">
+    </section>
+
+    <section id="sec-status" hidden>
+    <div class="card" id="track">
       <h2>Track your grievance</h2>
       <p class="note">Type the Grievance ID you received, for example MCL-2026-00001.</p>
       <form id="trackform">
@@ -124,6 +143,7 @@
       </form>
       <div id="trackresult" role="status"></div>
     </div>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -193,7 +213,19 @@
     });
     // A link like index.html?id=MCL-2026-00001 (e.g. from a QR code) checks straight away
     var qid = new URLSearchParams(location.search).get("id");
-    if (qid) { document.getElementById("tid").value = qid.trim().toUpperCase(); track(qid.trim().toUpperCase()); document.getElementById("track").scrollIntoView(); }
+    if (qid) { document.getElementById("tid").value = qid.trim().toUpperCase(); track(qid.trim().toUpperCase()); location.hash = "status"; }
+
+    // Home / Register / View Status are shown one at a time, chosen by the menu (index.html#register)
+    function showSection() {
+      var h = (location.hash || "#home").slice(1);
+      if (["home", "register", "status"].indexOf(h) < 0) h = "home";
+      ["home", "register", "status"].forEach(function (n) {
+        document.getElementById("sec-" + n).hidden = (n !== h);
+      });
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener("hashchange", showSection);
+    showSection();
 
 
     // ---- Supporting documents (stored in Supabase Storage bucket "grievance-docs") ----

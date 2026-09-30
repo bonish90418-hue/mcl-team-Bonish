@@ -7,11 +7,6 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
-    header { background: #111827; color: #fff; padding: 12px 16px; }
-    header h1 { margin: 0 0 8px; font-size: 18px; }
-    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
-            border-radius: 8px; background: #374151; margin: 0 6px 6px 0; font-size: 16px; }
-    nav a.active { background: #c2410c; }
     main { max-width: 800px; margin: 0 auto; padding: 16px; }
     .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 14px; }
     label { display: block; font-weight: bold; font-size: 14px; margin: 10px 0 4px; }
@@ -36,16 +31,10 @@
     pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; background: #f9fafb; padding: 10px; border-radius: 8px; font-size: 14px; }
     #editor { border: 2px solid #c2410c; }
   </style>
+  <link rel="stylesheet" href="site.css">
 </head>
 <body>
-  <header>
-    <h1>MCL Grievance Management</h1>
-    <nav>
-      <a href="index.html">Register</a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="officer.html" class="active">Officer page</a>
-    </nav>
-  </header>
+  <script src="header.js" data-active="officer"></script>
   <main>
     <div id="lock" class="card">
       <h2>Officer page - passcode needed</h2>
