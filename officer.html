@@ -64,6 +64,8 @@
         <button type="button" class="grey" id="d_week" style="margin-top:8px">This week</button>
         <button type="button" class="grey" id="d_clear" style="margin-top:8px">Clear dates</button>
       </div>
+      <label for="stext">Status (type a word)</label>
+      <input id="stext" placeholder="open, progress or resolved (part of it also works)">
       <label for="ctext">Category (type a word)</label>
       <input id="ctext" placeholder="e.g. land, hr, finance (part of it also works)">
       <label for="otext">Responsible officer (type a name)</label>
@@ -166,6 +168,8 @@
       var df = document.getElementById("dfrom").value, dt = document.getElementById("dto").value;
       if (df && g.submission_date < df) return false;
       if (dt && g.submission_date > dt) return false;
+      var st = document.getElementById("stext").value.trim().toLowerCase();
+      if (st && (g.status || "").toLowerCase().indexOf(st) < 0) return false;
       var ct = document.getElementById("ctext").value.trim().toLowerCase();
       if (ct && (g.category || "").toLowerCase().indexOf(ct) < 0) return false;
       var ot = document.getElementById("otext").value.trim().toLowerCase();
@@ -386,7 +390,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Date shortcuts (local date on the user's device; week = Monday to today)
