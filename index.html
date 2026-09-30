@@ -95,6 +95,10 @@
         <label for="description">Detailed description *</label>
         <textarea id="description" required></textarea>
 
+        <label for="files">Supporting documents (optional)</label>
+        <input id="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf">
+        <div class="note">Up to 3 files. PDF, JPG or PNG. Each file up to 5 MB. Made-up documents only.</div>
+
         <label for="urgency">Urgency *</label>
         <select id="urgency">
           <option>Low</option><option selected>Medium</option><option>High</option>
@@ -191,6 +195,34 @@
     var qid = new URLSearchParams(location.search).get("id");
     if (qid) { document.getElementById("tid").value = qid.trim().toUpperCase(); track(qid.trim().toUpperCase()); document.getElementById("track").scrollIntoView(); }
 
+
+    // ---- Supporting documents (stored in Supabase Storage bucket "grievance-docs") ----
+    var BUCKET = "grievance-docs", MAX_FILES = 3, MAX_MB = 5;
+    function checkFiles(files) {
+      if (files.length > MAX_FILES) return "Please choose at most " + MAX_FILES + " files at a time.";
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], n = f.name.toLowerCase();
+        if (f.size > MAX_MB * 1024 * 1024) return f.name + " is bigger than " + MAX_MB + " MB.";
+        if (!/\.(pdf|jpe?g|png)$/.test(n)) return f.name + " is not a PDF, JPG or PNG file.";
+      }
+      return "";
+    }
+    function contentTypeOf(f) {
+      var n = f.name.toLowerCase();
+      return n.slice(-4) === ".pdf" ? "application/pdf" : n.slice(-4) === ".png" ? "image/png" : "image/jpeg";
+    }
+    // Returns { ok: number, errors: [text] }
+    async function uploadDocs(no, files) {
+      var out = { ok: 0, errors: [] };
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], safe = f.name.replace(/[^A-Za-z0-9._-]/g, "_");
+        var r = await db.storage.from(BUCKET).upload(no + "/" + Date.now() + "-" + i + "-" + safe, f,
+          { contentType: contentTypeOf(f), upsert: false });
+        if (r.error) out.errors.push(f.name + ": " + r.error.message); else out.ok++;
+      }
+      return out;
+    }
+
     var skipCheck = false;
     function likeSafe(t) { return t.replace(/[\\%_]/g, "\\$&"); }
     // If the check itself fails, we do not block the complainant: the grievance is still saved.
@@ -217,6 +249,9 @@
       btn.textContent = "Submitting...";
       result.className = ""; result.innerHTML = "";
       try {
+        var files = Array.prototype.slice.call(document.getElementById("files").files);
+        var fileProblem = checkFiles(files);
+        if (fileProblem) { show("err", esc(fileProblem)); btn.disabled = false; btn.textContent = "Submit grievance"; return; }
         var row = {
           complainant_name: val("name"), contact: val("contact"),
           stakeholder_category: val("stake"), neis_no: val("neis") || null,
@@ -242,9 +277,15 @@
         var res = await db.from("grievances").insert(row).select().single();
         if (res.error) throw res.error;
         var g = res.data;
-        show("ok", "Thank you. Your grievance is registered.<br>Your Grievance ID:<div class='big'>" +
+        var docNote = "";
+        if (files.length) {
+          var up = await uploadDocs(g.grievance_no, files);
+          docNote = "<br>Documents uploaded: " + up.ok + " of " + files.length + "." +
+            (up.errors.length ? "<br><b>Some documents could not be uploaded.</b> Please pass this error to the team: " + esc(up.errors.join(" | ")) : "");
+        }
+        show(docNote.indexOf("could not") >= 0 ? "err" : "ok", "Thank you. Your grievance is registered.<br>Your Grievance ID:<div class='big'>" +
           esc(g.grievance_no) + "</div>Please note it down. Department: " + esc(g.department) +
-          ". Reply due by: " + esc(g.due_date) + ".");
+          ". Reply due by: " + esc(g.due_date) + "." + docNote);
         form.reset();
         skipCheck = false;
       } catch (e) {

@@ -210,6 +210,9 @@
         "<p class='small'>" + esc(g.complainant_name) + " (" + esc(g.stakeholder_category) + "), contact: " + esc(g.contact) +
         (g.neis_no ? ", NEIS: " + esc(g.neis_no) : "") + "<br>Received: " + esc(g.submission_date) + " | Department: " + esc(g.department) +
         " | Due: " + esc(g.due_date) + "</p><p><b>" + esc(g.subject) + "</b></p><pre>" + esc(g.description) + "</pre>" +
+        "<label>Documents</label><div id='e_docs' class='small'>Loading...</div>" +
+        "<input id='e_files' type='file' multiple accept='.pdf,.jpg,.jpeg,.png,image/*,application/pdf' style='margin-top:8px'>" +
+        "<button type='button' class='grey' id='e_upload'>Upload document</button>" +
         "<label>History and remarks</label><pre>" + esc(g.remarks || "No remarks yet.") + "</pre>" +
         "<label for='e_off'>Responsible officer (made-up name and designation)</label><input id='e_off' value='" + esc(g.assigned_officer || "") + "'>" +
         "<label for='e_by'>Your name and designation (made up) *</label><input id='e_by'>" +
@@ -231,9 +234,69 @@
         "<button id='save'>Save update</button><button class='grey' id='close'>Close without saving</button>";
       document.getElementById("close").onclick = function () { ed.hidden = true; };
       document.getElementById("save").onclick = save;
+      document.getElementById("e_upload").onclick = function () { addDocs(g); };
+      loadDocs(g);
       document.getElementById("a_mail").onclick = function () { sendAlert(g, "mail"); };
       document.getElementById("a_sms").onclick = function () { sendAlert(g, "sms"); };
       ed.scrollIntoView({ behavior: "smooth" });
+    }
+
+
+    // ---- Supporting documents (stored in Supabase Storage bucket "grievance-docs") ----
+    var BUCKET = "grievance-docs", MAX_FILES = 3, MAX_MB = 5;
+    function checkFiles(files) {
+      if (files.length > MAX_FILES) return "Please choose at most " + MAX_FILES + " files at a time.";
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], n = f.name.toLowerCase();
+        if (f.size > MAX_MB * 1024 * 1024) return f.name + " is bigger than " + MAX_MB + " MB.";
+        if (!/\.(pdf|jpe?g|png)$/.test(n)) return f.name + " is not a PDF, JPG or PNG file.";
+      }
+      return "";
+    }
+    function contentTypeOf(f) {
+      var n = f.name.toLowerCase();
+      return n.slice(-4) === ".pdf" ? "application/pdf" : n.slice(-4) === ".png" ? "image/png" : "image/jpeg";
+    }
+    // Returns { ok: number, errors: [text] }
+    async function uploadDocs(no, files) {
+      var out = { ok: 0, errors: [] };
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], safe = f.name.replace(/[^A-Za-z0-9._-]/g, "_");
+        var r = await db.storage.from(BUCKET).upload(no + "/" + Date.now() + "-" + i + "-" + safe, f,
+          { contentType: contentTypeOf(f), upsert: false });
+        if (r.error) out.errors.push(f.name + ": " + r.error.message); else out.ok++;
+      }
+      return out;
+    }
+
+    async function loadDocs(g) {
+      var box = document.getElementById("e_docs");
+      if (!box) return;
+      try {
+        var l = await db.storage.from(BUCKET).list(g.grievance_no, { limit: 100, sortBy: { column: "name", order: "asc" } });
+        if (l.error) throw l.error;
+        var files = (l.data || []).filter(function (x) { return x.name && x.id; });
+        if (!files.length) { box.textContent = "No documents yet."; return; }
+        var s = await db.storage.from(BUCKET).createSignedUrls(files.map(function (x) { return g.grievance_no + "/" + x.name; }), 3600);
+        if (s.error) throw s.error;
+        box.innerHTML = s.data.map(function (x, i) {
+          var shown = files[i].name.replace(/^\d+-\d+-/, "");
+          return "<div><a href='" + esc(x.signedUrl) + "' target='_blank' rel='noopener'>" + esc(shown) + "</a></div>";
+        }).join("");
+      } catch (e) { box.innerHTML = "<span style='color:#991b1b'>Could not load documents (has 03-documents.sql been run?). Error: " + esc(e.message || JSON.stringify(e)) + "</span>"; }
+    }
+    async function addDocs(g) {
+      var input = document.getElementById("e_files"), files = Array.prototype.slice.call(input.files);
+      if (!files.length) { say("err", "Please choose a file first."); return; }
+      var problem = checkFiles(files);
+      if (problem) { say("err", esc(problem)); return; }
+      var b = document.getElementById("e_upload"); b.disabled = true; b.textContent = "Uploading...";
+      var up = await uploadDocs(g.grievance_no, files);
+      b.disabled = false; b.textContent = "Upload document";
+      if (up.errors.length) say("err", "Some documents could not be uploaded. Please pass this error to the team: " + esc(up.errors.join(" | ")));
+      else say("ok", up.ok + " document(s) uploaded. Add a remark below so the history is complete.");
+      input.value = "";
+      loadDocs(g);
     }
 
     // Alerts without a server: open the user's own email / SMS app with the text ready.
