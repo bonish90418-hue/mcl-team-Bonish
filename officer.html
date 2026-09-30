@@ -102,6 +102,8 @@
       <input id="stext" placeholder="open, progress or resolved (part of it also works)">
       <label for="ctext">Category (type a word)</label>
       <input id="ctext" placeholder="e.g. land, hr, finance (part of it also works)">
+      <label for="rtext">Disposal reply (type words from the reply)</label>
+      <input id="rtext" placeholder="Words from the final reply given when resolving">
       <label for="otext">Responsible officer (type a name)</label>
       <input id="otext" placeholder="Type the officer's name (part of it also works)">
       <label for="atext">Area (type a name)</label>
@@ -196,6 +198,12 @@
       });
     }
 
+    // The disposal reply is the remark that was saved together with the change to Resolved.
+    // Each remark entry is separated by a blank line; the one containing "to Resolved" is the reply.
+    function disposalReply(g) {
+      return (g.remarks || "").split("\n\n").filter(function (e) { return / to Resolved/.test(e); }).join(" ").toLowerCase();
+    }
+
     function matches(g) {
       var q = document.getElementById("q").value.trim().toLowerCase();
       if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
@@ -206,6 +214,8 @@
       if ((ddf || ddt) && !g.due_date) return false;
       if (ddf && g.due_date < ddf) return false;
       if (ddt && g.due_date > ddt) return false;
+      var rt = document.getElementById("rtext").value.trim().toLowerCase();
+      if (rt && disposalReply(g).indexOf(rt) < 0) return false;
       var rvf = document.getElementById("rvfrom").value, rvt = document.getElementById("rvto").value;
       if (rvf || rvt) {
         var rd = g.resolved_at ? localDate(new Date(g.resolved_at)) : "";
@@ -453,12 +463,12 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "rtext", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Clear all filters: empty every box and set every drop-down back to its first choice
     document.getElementById("clearall").onclick = function () {
-      ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
+      ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "rtext", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
         document.getElementById(id).value = "";
       });
       ["view", "officer", "category", "area", "reop", "urgf", "lvl"].forEach(function (id) {
