@@ -69,6 +69,10 @@
         <div><label for="ddfrom">Due from (SLA due date)</label><input type="date" id="ddfrom"></div>
         <div><label for="ddto">Due up to (SLA due date)</label><input type="date" id="ddto"></div>
       </div>
+      <div class="grid">
+        <div><label for="edfrom">Escalated from (date)</label><input type="date" id="edfrom"></div>
+        <div><label for="edto">Escalated up to (date)</label><input type="date" id="edto"></div>
+      </div>
       <label for="reop">Reopened</label>
       <select id="reop">
         <option value="">All grievances</option>
@@ -198,6 +202,11 @@
       if ((ddf || ddt) && !g.due_date) return false;
       if (ddf && g.due_date < ddf) return false;
       if (ddt && g.due_date > ddt) return false;
+      var edf = document.getElementById("edfrom").value, edt = document.getElementById("edto").value;
+      if (edf || edt) {
+        var ed = g.escalated_at ? g.escalated_at.slice(0, 10) : "";
+        if (!ed || (edf && ed < edf) || (edt && ed > edt)) return false;
+      }
       var rp = document.getElementById("reop").value;
       if (rp === "yes" && !g.reopened) return false;
       if (rp === "no" && g.reopened) return false;
@@ -261,7 +270,7 @@
           (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
           ((g.remarks || "").indexOf("SYSTEM: automatically escalated") >= 0 ? "<span class='pill p-red'>Auto-escalated</span>" : "") +
           (isDup(g) ? "<span class='pill p-amber'>Possible duplicate</span>" : "") + "</p>" +
-          "<div class='small'>Officer: " + esc(g.assigned_officer || "Not assigned") + (action ? " | <b>" + action + "</b>" : "") + "</div>" +
+          "<div class='small'>" + (g.escalated_at ? "Escalated on " + esc(g.escalated_at.slice(0, 10)) + " | " : "") + "Officer: " + esc(g.assigned_officer || "Not assigned") + (action ? " | <b>" + action + "</b>" : "") + "</div>" +
           "<button class='grey' data-id='" + esc(g.id) + "'>Open and update</button></div>";
       }).join("") : "<div class='card'>No grievances match.</div>";
     }
@@ -409,6 +418,7 @@
       if (urg !== g.urgency) changes.push("urgency: " + g.urgency + " to " + urg);
       var upd = { assigned_officer: off, status: status, urgency: urg, escalation_level: lvl };
       if (g.status === "Resolved" && status !== "Resolved") { upd.reopened = true; upd.resolved_at = null; changes.push("REOPENED"); }
+      if (lvl > g.escalation_level) upd.escalated_at = new Date().toISOString();
       if (status === "Resolved" && g.status !== "Resolved") upd.resolved_at = new Date().toISOString();
       var stamp = new Date().toLocaleString();
       upd.remarks = (g.remarks ? g.remarks + "\n\n" : "") + "[" + stamp + "] " + by + ": " + note +
@@ -416,6 +426,11 @@
       var btn = document.getElementById("save"); btn.disabled = true; btn.textContent = "Saving...";
       try {
         var r = await db.from("grievances").update(upd).eq("id", g.id).select().single();
+        // If 04-escalation-date.sql has not been run yet, save everything else without the date
+        if (r.error && upd.escalated_at && /escalated_at/.test(r.error.message || "")) {
+          delete upd.escalated_at;
+          r = await db.from("grievances").update(upd).eq("id", g.id).select().single();
+        }
         if (r.error) throw r.error;
         all[all.indexOf(g)] = r.data;
         document.getElementById("editor").hidden = true;
@@ -429,12 +444,12 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "ddfrom", "ddto", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Clear all filters: empty every box and set every drop-down back to its first choice
     document.getElementById("clearall").onclick = function () {
-      ["q", "dfrom", "dto", "ddfrom", "ddto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
+      ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
         document.getElementById(id).value = "";
       });
       ["view", "officer", "category", "area", "reop", "urgf", "lvl"].forEach(function (id) {
