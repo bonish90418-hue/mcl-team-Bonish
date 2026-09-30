@@ -64,6 +64,14 @@
         <button type="button" class="grey" id="d_week" style="margin-top:8px">This week</button>
         <button type="button" class="grey" id="d_clear" style="margin-top:8px">Clear dates</button>
       </div>
+      <label for="lvl">Escalation level</label>
+      <select id="lvl">
+        <option value="">All levels</option>
+        <option value="1">Level 1 - Dealing Officer</option>
+        <option value="2">Level 2 - Section / Department Head</option>
+        <option value="3">Level 3 - Area Head / Competent Authority</option>
+        <option value="4">Level 4 - Corporate / HQ Monitoring</option>
+      </select>
       <label for="dtext">Department (type a word)</label>
       <input id="dtext" placeholder="e.g. land, personnel, finance (part of it also works)">
       <label for="stext">Status (type a word)</label>
@@ -170,6 +178,8 @@
       var df = document.getElementById("dfrom").value, dt = document.getElementById("dto").value;
       if (df && g.submission_date < df) return false;
       if (dt && g.submission_date > dt) return false;
+      var lv = document.getElementById("lvl").value;
+      if (lv && String(g.escalation_level) !== lv) return false;
       var dp = document.getElementById("dtext").value.trim().toLowerCase();
       if (dp && (g.department || "").toLowerCase().indexOf(dp) < 0) return false;
       var st = document.getElementById("stext").value.trim().toLowerCase();
@@ -394,7 +404,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Date shortcuts (local date on the user's device; week = Monday to today)
