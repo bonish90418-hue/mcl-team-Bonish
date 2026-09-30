@@ -65,7 +65,14 @@
         <input id="address">
 
         <label for="location">Area / Project / Unit *</label>
-        <input id="location" required placeholder="e.g. Area 1 (made up)">
+        <select id="location" required>
+          <option value="">Select...</option>
+          <!-- To change the list, edit the names below (keep the same spelling on every line). -->
+          <option>Area 1</option><option>Area 2</option><option>Area 3</option>
+          <option>Area 4</option><option>Area 5</option><option>Area 6</option>
+          <option>Area 7</option><option>Area 8</option>
+          <option>Corporate / HQ</option><option>Other</option>
+        </select>
 
         <label for="category">Grievance category *</label>
         <select id="category" required>
