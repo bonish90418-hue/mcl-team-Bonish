@@ -73,6 +73,10 @@
         <div><label for="edfrom">Escalated from (date)</label><input type="date" id="edfrom"></div>
         <div><label for="edto">Escalated up to (date)</label><input type="date" id="edto"></div>
       </div>
+      <div class="grid">
+        <div><label for="rvfrom">Resolved from (date)</label><input type="date" id="rvfrom"></div>
+        <div><label for="rvto">Resolved up to (date)</label><input type="date" id="rvto"></div>
+      </div>
       <label for="reop">Reopened</label>
       <select id="reop">
         <option value="">All grievances</option>
@@ -202,6 +206,11 @@
       if ((ddf || ddt) && !g.due_date) return false;
       if (ddf && g.due_date < ddf) return false;
       if (ddt && g.due_date > ddt) return false;
+      var rvf = document.getElementById("rvfrom").value, rvt = document.getElementById("rvto").value;
+      if (rvf || rvt) {
+        var rd = g.resolved_at ? localDate(new Date(g.resolved_at)) : "";
+        if (!rd || (rvf && rd < rvf) || (rvt && rd > rvt)) return false;
+      }
       var edf = document.getElementById("edfrom").value, edt = document.getElementById("edto").value;
       if (edf || edt) {
         var ed = g.escalated_at ? g.escalated_at.slice(0, 10) : "";
@@ -444,12 +453,12 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Clear all filters: empty every box and set every drop-down back to its first choice
     document.getElementById("clearall").onclick = function () {
-      ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
+      ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
         document.getElementById(id).value = "";
       });
       ["view", "officer", "category", "area", "reop", "urgf", "lvl"].forEach(function (id) {
