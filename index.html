@@ -26,6 +26,11 @@
     .ok { background: #d1fae5; color: #065f46; }
     .err { background: #fee2e2; color: #991b1b; }
     .big { font-size: 24px; font-weight: bold; }
+    .steps { display: flex; gap: 4px; margin: 12px 0; }
+    .step { flex: 1; text-align: center; font-size: 13px; padding: 8px 2px; border-radius: 8px; background: #e5e7eb; color: #6b7280; }
+    .step.done { background: #047857; color: #fff; }
+    .step.now { background: #c2410c; color: #fff; font-weight: bold; }
+    .kv { margin: 4px 0; }
   </style>
 </head>
 <body>
@@ -104,6 +109,17 @@
       </form>
       <div id="result" role="status"></div>
     </div>
+
+    <div class="card" id="track" style="margin-top:16px">
+      <h2>Track your grievance</h2>
+      <p class="note">Type the Grievance ID you received, for example MCL-2026-00001.</p>
+      <form id="trackform">
+        <label for="tid">Grievance ID</label>
+        <input id="tid" required autocapitalize="characters" placeholder="MCL-2026-00001">
+        <button id="tbtn" type="submit">Check status</button>
+      </form>
+      <div id="trackresult" role="status"></div>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -129,6 +145,51 @@
       });
     }
     function val(id) { return document.getElementById(id).value.trim(); }
+
+    // ---- Track by Grievance ID (shows only safe details, never contact or internal remarks) ----
+    var trackResult = document.getElementById("trackresult");
+    function showTrack(kind, html) { trackResult.className = "msg " + kind; trackResult.innerHTML = html; }
+    async function track(id) {
+      if (!db) return;
+      var tb = document.getElementById("tbtn");
+      tb.disabled = true; tb.textContent = "Checking...";
+      trackResult.className = ""; trackResult.innerHTML = "";
+      try {
+        var res = await db.from("grievances")
+          .select("grievance_no,subject,status,department,submission_date,due_date,assigned_officer,escalation_level,reopened,resolved_at")
+          .eq("grievance_no", id).maybeSingle();
+        if (res.error) throw res.error;
+        var g = res.data;
+        if (!g) { showTrack("err", "No grievance found with ID " + esc(id) + ". Please check the ID and try again."); }
+        else {
+          var stage = g.status === "Resolved" ? 3 : g.status === "In progress" ? 2 : g.assigned_officer ? 1 : 0;
+          var names = ["Received", "Assigned", "In progress", "Disposed"];
+          var steps = names.map(function (n, i) {
+            return "<div class='step " + (i < stage || stage === 3 ? "done" : i === stage ? "now" : "") + "'>" + n + "</div>";
+          }).join("");
+          var days = g.due_date ? Math.floor((new Date(g.due_date + "T00:00:00") - new Date(new Date().toISOString().slice(0, 10) + "T00:00:00")) / 86400000) : null;
+          var dueNote = g.status === "Resolved" ? "" : days === null ? "" : days < 0 ? " (past the due date - it has been escalated)" : " (" + days + " days left)";
+          showTrack("ok", "<div class='big'>" + esc(g.grievance_no) + "</div><div class='steps'>" + steps + "</div>" +
+            "<div class='kv'><b>Subject:</b> " + esc(g.subject) + "</div>" +
+            "<div class='kv'><b>Status:</b> " + esc(g.status) + (g.reopened ? " (reopened)" : "") + "</div>" +
+            "<div class='kv'><b>Department:</b> " + esc(g.department) + "</div>" +
+            "<div class='kv'><b>Responsible officer:</b> " + esc(g.assigned_officer || "Not assigned yet") + "</div>" +
+            "<div class='kv'><b>Date received:</b> " + esc(g.submission_date) + "</div>" +
+            "<div class='kv'><b>Reply due by:</b> " + esc(g.due_date || "-") + dueNote + "</div>" +
+            (g.resolved_at ? "<div class='kv'><b>Disposed on:</b> " + esc(g.resolved_at.slice(0, 10)) + "</div>" : ""));
+        }
+      } catch (e) {
+        showTrack("err", "Sorry, we could not check the status. Please pass this error to the team: " + esc(e.message || JSON.stringify(e)));
+      }
+      tb.disabled = false; tb.textContent = "Check status";
+    }
+    document.getElementById("trackform").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      track(document.getElementById("tid").value.trim().toUpperCase());
+    });
+    // A link like index.html?id=MCL-2026-00001 (e.g. from a QR code) checks straight away
+    var qid = new URLSearchParams(location.search).get("id");
+    if (qid) { document.getElementById("tid").value = qid.trim().toUpperCase(); track(qid.trim().toUpperCase()); document.getElementById("track").scrollIntoView(); }
 
     form.addEventListener("submit", async function (ev) {
       ev.preventDefault();
