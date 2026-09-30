@@ -437,11 +437,45 @@
       } catch (e) { showErr(e.message || JSON.stringify(e)); return null; }
     }
 
-    function downloadExcel() {
+    // Documents sheet: reads the file list of each grievance from Supabase Storage (folder = Grievance ID)
+    var MAX_DOC_LOOKUPS = 300;
+    async function addDocumentsReport(reports, btn, label) {
+      var head = ["Grievance ID", "File name", "Size (KB)", "Uploaded on"], rows = [];
+      try {
+        var dbc = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+        var list = filtered().slice(0, MAX_DOC_LOOKUPS), done = 0;
+        for (var i = 0; i < list.length; i += 10) {
+          if (btn) btn.textContent = "Reading documents " + Math.min(i + 10, list.length) + "/" + list.length + "...";
+          var batch = list.slice(i, i + 10);
+          var res = await Promise.all(batch.map(function (g) {
+            return dbc.storage.from("grievance-docs").list(g.grievance_no, { limit: 100 }).then(function (r) { return { g: g, r: r }; });
+          }));
+          res.forEach(function (x) {
+            if (x.r.error) throw x.r.error;
+            (x.r.data || []).filter(function (f) { return f.id; }).forEach(function (f) {
+              rows.push([x.g.grievance_no, f.name.replace(/^\d+-\d+-/, ""),
+                f.metadata && f.metadata.size ? Math.round(f.metadata.size / 1024) : "", f.created_at ? f.created_at.slice(0, 10) : ""]);
+            });
+          });
+        }
+        if (filtered().length > MAX_DOC_LOOKUPS) rows.push(["Note", "Only the first " + MAX_DOC_LOOKUPS + " grievances were checked for documents.", "", ""]);
+      } catch (e) {
+        rows = [["Could not read documents", "Has 03-documents.sql been run? Error: " + (e.message || JSON.stringify(e)), "", ""]];
+      }
+      reports.push({ name: "Documents", header: head, rows: rows });
+      var withDocs = {}; rows.forEach(function (r) { if (r[2] !== "") withDocs[r[0]] = 1; });
+      var sum = reports[0];
+      if (sum && sum.name === "Summary") sum.rows.push(["Grievances with documents", Object.keys(withDocs).length], ["Documents attached", rows.filter(function (r) { return r[2] !== ""; }).length]);
+    }
+
+    async function downloadExcel() {
       try {
         if (typeof XLSX === "undefined") throw new Error("The Excel library did not load. Check the internet connection and try again.");
         var reports = buildReports();
         if (!reports) return;
+        var xb = document.getElementById("xl"), xt = xb.textContent; xb.disabled = true;
+        await addDocumentsReport(reports, xb);
+        xb.disabled = false; xb.textContent = xt;
         var book = XLSX.utils.book_new();
         reports.forEach(function (r) {
           var ws = XLSX.utils.aoa_to_sheet([r.header].concat(r.rows));
@@ -456,11 +490,14 @@
       } catch (e) { showErr(e.message || JSON.stringify(e)); }
     }
 
-    function downloadPdf() {
+    async function downloadPdf() {
       try {
         if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("The PDF library did not load. Check the internet connection and try again.");
         var reports = buildReports();
         if (!reports) return;
+        var pb = document.getElementById("pdf"), pt = pb.textContent; pb.disabled = true;
+        await addDocumentsReport(reports, pb);
+        pb.disabled = false; pb.textContent = pt;
         var doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
         if (typeof doc.autoTable !== "function") throw new Error("The PDF table library did not load. Check the internet connection and try again.");
         var f = document.getElementById("from").value, t = document.getElementById("to").value;
