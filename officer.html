@@ -63,6 +63,7 @@
             <option value="overdue">Overdue</option>
             <option value="escalated">Escalated</option>
             <option value="disposed">Disposed</option>
+            <option value="alert">Alert needed (due soon, overdue or escalated)</option>
           </select></div>
         <div><label for="officer">Responsible officer</label><select id="officer"></select></div>
         <div><label for="category">Category</label>
@@ -139,7 +140,8 @@
       var v = document.getElementById("view").value;
       return v === "all" || (v === "new" && pending(g) && !g.assigned_officer) || (v === "pending" && pending(g)) ||
         (v === "due" && due(g)) || (v === "overdue" && overdue(g)) ||
-        (v === "escalated" && pending(g) && g.escalation_level > 1) || (v === "disposed" && !pending(g));
+        (v === "escalated" && pending(g) && g.escalation_level > 1) || (v === "disposed" && !pending(g)) ||
+        (v === "alert" && (due(g) || overdue(g) || (pending(g) && g.escalation_level > 1)));
     }
 
     function render() {
@@ -198,10 +200,50 @@
         "<label for='e_lvl'>Escalation level</label><select id='e_lvl'>" +
         LEVELS.map(function (s, i) { return "<option value='" + (i + 1) + "'" + (i + 1 === g.escalation_level ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
         "<label for='e_note'>New remark / action taken *</label><textarea id='e_note'></textarea>" +
+        "<div class='card' style='background:#f9fafb;margin:14px 0 0'><b>Send an alert</b>" +
+        "<p class='small'>This opens your own email or SMS app with the message ready. You press Send there. The complainant's contact: " + esc(g.contact) + "</p>" +
+        "<label for='e_tpl'>Message</label><select id='e_tpl'>" +
+        "<option value='ack'>Acknowledgement to complainant</option>" +
+        "<option value='upd'>Status update to complainant</option>" +
+        "<option value='res'>Disposal / reply to complainant</option>" +
+        "<option value='off'>Reminder to responsible officer (overdue / due soon)</option></select>" +
+        "<button class='grey' id='a_mail'>Open email</button><button class='grey' id='a_sms'>Open SMS</button></div>" +
         "<button id='save'>Save update</button><button class='grey' id='close'>Close without saving</button>";
       document.getElementById("close").onclick = function () { ed.hidden = true; };
       document.getElementById("save").onclick = save;
+      document.getElementById("a_mail").onclick = function () { sendAlert(g, "mail"); };
+      document.getElementById("a_sms").onclick = function () { sendAlert(g, "sms"); };
       ed.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Alerts without a server: open the user's own email / SMS app with the text ready.
+    function alertText(g, tpl) {
+      var id = g.grievance_no, l = left(g);
+      var end = "\nMCL Grievance Cell (practice tool)";
+      if (tpl === "ack") return ["Grievance " + id + " received",
+        "Dear " + g.complainant_name + ",\nYour grievance (" + g.subject + ") is registered. Grievance ID: " + id +
+        ". Expected reply by " + g.due_date + "." + end];
+      if (tpl === "upd") return ["Update on grievance " + id,
+        "Dear " + g.complainant_name + ",\nYour grievance " + id + " is now: " + g.status + ". Responsible officer: " +
+        (g.assigned_officer || "to be assigned") + ". Expected reply by " + g.due_date + "." + end];
+      if (tpl === "res") return ["Reply to grievance " + id,
+        "Dear " + g.complainant_name + ",\nYour grievance " + id + " (" + g.subject + ") has been disposed. Please contact the office if you are not satisfied." + end];
+      var when = l === null ? "has no due date" : l < 0 ? "is OVERDUE by " + (-l) + " days" : "is due in " + l + " days";
+      return ["Reminder: grievance " + id, "Grievance " + id + " (" + g.subject + ", " + g.location + ") " + when +
+        ". Escalation level: " + g.escalation_level + ". Please take action." + end];
+    }
+    function sendAlert(g, how) {
+      var tpl = document.getElementById("e_tpl").value, t = alertText(g, tpl);
+      var toOfficer = tpl === "off", c = g.contact || "";
+      var isMail = /\S+@\S+\.\S+/.test(c), phone = c.replace(/[^\d+]/g, "");
+      if (!toOfficer && how === "mail" && !isMail) { say("err", "The complainant's contact (" + esc(c) + ") is not an email address. Try SMS."); return; }
+      if (!toOfficer && how === "sms" && (isMail || phone.length < 7)) { say("err", "The complainant's contact (" + esc(c) + ") is not a phone number. Try email."); return; }
+      if (how === "mail") {
+        location.href = "mailto:" + (toOfficer ? "" : encodeURIComponent(c)) + "?subject=" + encodeURIComponent(t[0]) + "&body=" + encodeURIComponent(t[1]);
+      } else {
+        location.href = "sms:" + (toOfficer ? "" : phone) + "?&body=" + encodeURIComponent(t[1]);
+      }
+      say("ok", "Your " + (how === "mail" ? "email" : "SMS") + " app should open with the message ready. Press Send there, then add a remark below so the history is complete.");
     }
 
     async function save() {
