@@ -71,13 +71,14 @@
   commit and push.
 
 ## Our tool (filled in during Phase 1)
-- Team:
-- Tool name:
-- Problem:
-- Who records / who decides:
-- Table name and columns:
+- Team: MCL team, IIM Sambalpur MDP
+- Tool name: Integrated Grievance Management and Monitoring System (MCL)
+- Problem: Grievances reach many offices, so there is no single record, no tracking of delays and no combined report.
+- Who records / who decides: Anyone (or an office official) records a grievance; officers and Area/HQ heads decide and monitor.
+- Table name and columns: grievances - id, created_at, grievance_no (auto), complainant_name, contact, stakeholder_category, neis_no, address, location, category, subject, description, preferred_mode, registration_mode, submission_date, urgency, status, department (auto), assigned_officer, due_date (auto SLA), escalation_level (1-4), reopened, remarks, resolved_at
 - Pages: index.html = entry page; dashboard.html = dashboard
 
 ## Progress Log (newest entry at the bottom)
 - Phase 0 (starter): placeholder index.html, config.js without settings and
   this CLAUDE.md. Next: Phase 1 - the table and the entry page.
+- Phase 1 (Claude): database/01-setup.sql (one table `grievances`, auto grievance number, auto department and due date, RLS, grants) and index.html (registration form, shows the new Grievance ID). Works: not tested yet (Data Keeper must run the SQL, team must fill config.js). Known problems: menu link to dashboard.html leads nowhere until Phase 2; no file upload, login, email/SMS or PDF/Excel export (outside our rules for now). Next: Phase 2 - dashboard.html with counts, charts (category, area, month), overdue and SLA colours.

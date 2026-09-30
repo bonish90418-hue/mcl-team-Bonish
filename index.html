@@ -3,30 +3,154 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Team tool - coming soon</title>
+  <title>MCL Grievance Registration</title>
   <style>
-    body { font-family: Arial, sans-serif; color: #1f2937;
-           max-width: 640px; margin: 40px auto; padding: 0 16px; }
-    .box { border: 2px dashed #c2410c; border-radius: 12px; padding: 20px; }
-    .ok { color: #047857; font-weight: bold; }
-    .warn { color: #b45309; font-weight: bold; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
+    header { background: #111827; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
+            border-radius: 8px; background: #374151; margin-right: 6px; font-size: 16px; }
+    nav a.active { background: #c2410c; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    label { display: block; font-weight: bold; margin: 14px 0 4px; }
+    input, select, textarea { width: 100%; padding: 12px; font-size: 17px; border: 1px solid #9ca3af;
+                              border-radius: 8px; background: #fff; font-family: inherit; }
+    textarea { min-height: 120px; }
+    button { width: 100%; margin-top: 20px; padding: 16px; font-size: 18px; font-weight: bold;
+             color: #fff; background: #c2410c; border: 0; border-radius: 10px; cursor: pointer; }
+    button:disabled { background: #9ca3af; }
+    .note { font-size: 14px; color: #6b7280; }
+    .msg { margin-top: 16px; padding: 14px; border-radius: 10px; word-break: break-word; }
+    .ok { background: #d1fae5; color: #065f46; }
+    .err { background: #fee2e2; color: #991b1b; }
+    .big { font-size: 24px; font-weight: bold; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>Our team's tool is coming soon</h1>
-    <p>This placeholder page will be replaced in Phase 1 of the workshop.</p>
-    <p id="config-check">Checking database settings...</p>
-  </div>
+  <header>
+    <h1>MCL Grievance Management</h1>
+    <nav>
+      <a href="index.html" class="active">Register</a>
+      <a href="dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Register a grievance</h2>
+      <p class="note">Practice tool. Use MADE-UP data only. No real names, phone numbers or employee IDs.</p>
+      <form id="form">
+        <label for="name">Name of complainant *</label>
+        <input id="name" required>
+
+        <label for="contact">Contact (phone or email) *</label>
+        <input id="contact" required>
+
+        <label for="stake">Who are you? *</label>
+        <select id="stake" required>
+          <option value="">Select...</option>
+          <option>MCL employee</option><option>Retired employee</option>
+          <option>Land oustee</option><option>Project-affected person</option>
+          <option>Local resident</option><option>Contractor</option>
+          <option>Vendor</option><option>Union / association</option>
+          <option>General public</option><option>Other</option>
+        </select>
+
+        <label for="neis">NEIS No. (employees only)</label>
+        <input id="neis">
+
+        <label for="address">Address</label>
+        <input id="address">
+
+        <label for="location">Area / Project / Unit *</label>
+        <input id="location" required placeholder="e.g. Area 1 (made up)">
+
+        <label for="category">Grievance category *</label>
+        <select id="category" required>
+          <option value="">Select...</option>
+          <option>Land and R&amp;R</option>
+          <option>Employment and HR</option>
+          <option>Finance</option>
+          <option>Project / Area</option>
+          <option>Other</option>
+        </select>
+
+        <label for="subject">Subject *</label>
+        <input id="subject" required>
+
+        <label for="description">Detailed description *</label>
+        <textarea id="description" required></textarea>
+
+        <label for="urgency">Urgency *</label>
+        <select id="urgency">
+          <option>Low</option><option selected>Medium</option><option>High</option>
+        </select>
+
+        <label for="mode">Preferred way to be contacted</label>
+        <select id="mode">
+          <option>Phone</option><option>Email</option><option>SMS</option><option>In person</option>
+        </select>
+
+        <button id="btn" type="submit">Submit grievance</button>
+      </form>
+      <div id="result" role="status"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script>
-    var el = document.getElementById("config-check");
-    var url = window.SUPABASE_URL || "";
-    var key = window.SUPABASE_PUBLISHABLE_KEY || "";
-    var ready = url.indexOf("PASTE") === -1 && key.indexOf("sb_publishable_") === 0;
-    el.textContent = ready ? "Database settings: filled in \u2713"
-                           : "Database settings: not filled in yet (this is normal before Phase 1)";
-    el.className = ready ? "ok" : "warn";
+    var result = document.getElementById("result");
+    var btn = document.getElementById("btn");
+    var form = document.getElementById("form");
+    var db = null;
+    try {
+      db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+    } catch (e) {
+      show("err", "The database settings are not ready. Please tell the team. Error: " + e.message);
+    }
+
+    function show(kind, html) {
+      result.className = "msg " + kind;
+      result.innerHTML = html;
+    }
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function val(id) { return document.getElementById(id).value.trim(); }
+
+    form.addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      if (!db) return;
+      btn.disabled = true;
+      btn.textContent = "Submitting...";
+      result.className = ""; result.innerHTML = "";
+      try {
+        var row = {
+          complainant_name: val("name"), contact: val("contact"),
+          stakeholder_category: val("stake"), neis_no: val("neis") || null,
+          address: val("address") || null, location: val("location"),
+          category: val("category"), subject: val("subject"),
+          description: val("description"), urgency: val("urgency"),
+          preferred_mode: val("mode")
+        };
+        var res = await db.from("grievances").insert(row).select().single();
+        if (res.error) throw res.error;
+        var g = res.data;
+        show("ok", "Thank you. Your grievance is registered.<br>Your Grievance ID:<div class='big'>" +
+          esc(g.grievance_no) + "</div>Please note it down. Department: " + esc(g.department) +
+          ". Reply due by: " + esc(g.due_date) + ".");
+        form.reset();
+      } catch (e) {
+        show("err", "Sorry, we could not save your grievance. Please pass this error to the team: " +
+          esc(e.message || JSON.stringify(e)));
+      }
+      btn.disabled = false;
+      btn.textContent = "Submit grievance";
+    });
   </script>
 </body>
 </html>
