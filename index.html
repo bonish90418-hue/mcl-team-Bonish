@@ -3,30 +3,298 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Team tool - coming soon</title>
+  <title>MCL Grievance Registration</title>
   <style>
-    body { font-family: Arial, sans-serif; color: #1f2937;
-           max-width: 640px; margin: 40px auto; padding: 0 16px; }
-    .box { border: 2px dashed #c2410c; border-radius: 12px; padding: 20px; }
-    .ok { color: #047857; font-weight: bold; }
-    .warn { color: #b45309; font-weight: bold; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
+    header { background: #111827; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
+            border-radius: 8px; background: #374151; margin-right: 6px; font-size: 16px; }
+    nav a.active { background: #c2410c; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    label { display: block; font-weight: bold; margin: 14px 0 4px; }
+    input, select, textarea { width: 100%; padding: 12px; font-size: 17px; border: 1px solid #9ca3af;
+                              border-radius: 8px; background: #fff; font-family: inherit; }
+    textarea { min-height: 120px; }
+    button { width: 100%; margin-top: 20px; padding: 16px; font-size: 18px; font-weight: bold;
+             color: #fff; background: #c2410c; border: 0; border-radius: 10px; cursor: pointer; }
+    button:disabled { background: #9ca3af; }
+    .note { font-size: 14px; color: #6b7280; }
+    .msg { margin-top: 16px; padding: 14px; border-radius: 10px; word-break: break-word; }
+    .ok { background: #d1fae5; color: #065f46; }
+    .err { background: #fee2e2; color: #991b1b; }
+    .big { font-size: 24px; font-weight: bold; }
+    .steps { display: flex; gap: 4px; margin: 12px 0; }
+    .step { flex: 1; text-align: center; font-size: 13px; padding: 8px 2px; border-radius: 8px; background: #e5e7eb; color: #6b7280; }
+    .step.done { background: #047857; color: #fff; }
+    .step.now { background: #c2410c; color: #fff; font-weight: bold; }
+    .kv { margin: 4px 0; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>Our team's tool is coming soon</h1>
-    <p>This placeholder page will be replaced in Phase 1 of the workshop.</p>
-    <p id="config-check">Checking database settings...</p>
-  </div>
+  <header>
+    <h1>MCL Grievance Management</h1>
+    <nav>
+      <a href="index.html" class="active">Register</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="officer.html">Officer page</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Register a grievance</h2>
+      <p class="note">Practice tool. Use MADE-UP data only. No real names, phone numbers or employee IDs.</p>
+      <form id="form">
+        <label for="name">Name of complainant *</label>
+        <input id="name" required>
+
+        <label for="contact">Contact (phone or email) *</label>
+        <input id="contact" required>
+
+        <label for="stake">Who are you? *</label>
+        <select id="stake" required>
+          <option value="">Select...</option>
+          <option>MCL employee</option><option>Retired employee</option>
+          <option>Land oustee</option><option>Project-affected person</option>
+          <option>Local resident</option><option>Contractor</option>
+          <option>Vendor</option><option>Union / association</option>
+          <option>General public</option><option>Other</option>
+        </select>
+
+        <label for="neis">NEIS No. (employees only)</label>
+        <input id="neis">
+
+        <label for="address">Address</label>
+        <input id="address">
+
+        <label for="location">Area / Project / Unit *</label>
+        <select id="location" required>
+          <option value="">Select...</option>
+          <!-- To change the list, edit the names below (keep the same spelling on every line). -->
+          <option>Area 1</option><option>Area 2</option><option>Area 3</option>
+          <option>Area 4</option><option>Area 5</option><option>Area 6</option>
+          <option>Area 7</option><option>Area 8</option>
+          <option>Corporate / HQ</option><option>Other</option>
+        </select>
+
+        <label for="category">Grievance category *</label>
+        <select id="category" required>
+          <option value="">Select...</option>
+          <option>Land and R&amp;R</option>
+          <option>Employment and HR</option>
+          <option>Finance</option>
+          <option>Project / Area</option>
+          <option>Other</option>
+        </select>
+
+        <label for="subject">Subject *</label>
+        <input id="subject" required>
+
+        <label for="description">Detailed description *</label>
+        <textarea id="description" required></textarea>
+
+        <label for="files">Supporting documents (optional)</label>
+        <input id="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf">
+        <div class="note">Up to 3 files. PDF, JPG or PNG. Each file up to 5 MB. Made-up documents only.</div>
+
+        <label for="urgency">Urgency *</label>
+        <select id="urgency">
+          <option>Low</option><option selected>Medium</option><option>High</option>
+        </select>
+
+        <label for="mode">Preferred way to be contacted</label>
+        <select id="mode">
+          <option>Phone</option><option>Email</option><option>SMS</option><option>In person</option>
+        </select>
+
+        <button id="btn" type="submit">Submit grievance</button>
+      </form>
+      <div id="result" role="status"></div>
+    </div>
+
+    <div class="card" id="track" style="margin-top:16px">
+      <h2>Track your grievance</h2>
+      <p class="note">Type the Grievance ID you received, for example MCL-2026-00001.</p>
+      <form id="trackform">
+        <label for="tid">Grievance ID</label>
+        <input id="tid" required autocapitalize="characters" placeholder="MCL-2026-00001">
+        <button id="tbtn" type="submit">Check status</button>
+      </form>
+      <div id="trackresult" role="status"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script>
-    var el = document.getElementById("config-check");
-    var url = window.SUPABASE_URL || "";
-    var key = window.SUPABASE_PUBLISHABLE_KEY || "";
-    var ready = url.indexOf("PASTE") === -1 && key.indexOf("sb_publishable_") === 0;
-    el.textContent = ready ? "Database settings: filled in \u2713"
-                           : "Database settings: not filled in yet (this is normal before Phase 1)";
-    el.className = ready ? "ok" : "warn";
+    var result = document.getElementById("result");
+    var btn = document.getElementById("btn");
+    var form = document.getElementById("form");
+    var db = null;
+    try {
+      db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+    } catch (e) {
+      show("err", "The database settings are not ready. Please tell the team. Error: " + e.message);
+    }
+
+    function show(kind, html) {
+      result.className = "msg " + kind;
+      result.innerHTML = html;
+    }
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function val(id) { return document.getElementById(id).value.trim(); }
+
+    // ---- Track by Grievance ID (shows only safe details, never contact or internal remarks) ----
+    var trackResult = document.getElementById("trackresult");
+    function showTrack(kind, html) { trackResult.className = "msg " + kind; trackResult.innerHTML = html; }
+    async function track(id) {
+      if (!db) return;
+      var tb = document.getElementById("tbtn");
+      tb.disabled = true; tb.textContent = "Checking...";
+      trackResult.className = ""; trackResult.innerHTML = "";
+      try {
+        var res = await db.from("grievances")
+          .select("grievance_no,subject,status,department,submission_date,due_date,assigned_officer,escalation_level,reopened,resolved_at")
+          .eq("grievance_no", id).maybeSingle();
+        if (res.error) throw res.error;
+        var g = res.data;
+        if (!g) { showTrack("err", "No grievance found with ID " + esc(id) + ". Please check the ID and try again."); }
+        else {
+          var stage = g.status === "Resolved" ? 3 : g.status === "In progress" ? 2 : g.assigned_officer ? 1 : 0;
+          var names = ["Received", "Assigned", "In progress", "Disposed"];
+          var steps = names.map(function (n, i) {
+            return "<div class='step " + (i < stage || stage === 3 ? "done" : i === stage ? "now" : "") + "'>" + n + "</div>";
+          }).join("");
+          var days = g.due_date ? Math.floor((new Date(g.due_date + "T00:00:00") - new Date(new Date().toISOString().slice(0, 10) + "T00:00:00")) / 86400000) : null;
+          var dueNote = g.status === "Resolved" ? "" : days === null ? "" : days < 0 ? " (past the due date - it has been escalated)" : " (" + days + " days left)";
+          showTrack("ok", "<div class='big'>" + esc(g.grievance_no) + "</div><div class='steps'>" + steps + "</div>" +
+            "<div class='kv'><b>Subject:</b> " + esc(g.subject) + "</div>" +
+            "<div class='kv'><b>Status:</b> " + esc(g.status) + (g.reopened ? " (reopened)" : "") + "</div>" +
+            "<div class='kv'><b>Department:</b> " + esc(g.department) + "</div>" +
+            "<div class='kv'><b>Responsible officer:</b> " + esc(g.assigned_officer || "Not assigned yet") + "</div>" +
+            "<div class='kv'><b>Date received:</b> " + esc(g.submission_date) + "</div>" +
+            "<div class='kv'><b>Reply due by:</b> " + esc(g.due_date || "-") + dueNote + "</div>" +
+            (g.resolved_at ? "<div class='kv'><b>Disposed on:</b> " + esc(g.resolved_at.slice(0, 10)) + "</div>" : ""));
+        }
+      } catch (e) {
+        showTrack("err", "Sorry, we could not check the status. Please pass this error to the team: " + esc(e.message || JSON.stringify(e)));
+      }
+      tb.disabled = false; tb.textContent = "Check status";
+    }
+    document.getElementById("trackform").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      track(document.getElementById("tid").value.trim().toUpperCase());
+    });
+    // A link like index.html?id=MCL-2026-00001 (e.g. from a QR code) checks straight away
+    var qid = new URLSearchParams(location.search).get("id");
+    if (qid) { document.getElementById("tid").value = qid.trim().toUpperCase(); track(qid.trim().toUpperCase()); document.getElementById("track").scrollIntoView(); }
+
+
+    // ---- Supporting documents (stored in Supabase Storage bucket "grievance-docs") ----
+    var BUCKET = "grievance-docs", MAX_FILES = 3, MAX_MB = 5;
+    function checkFiles(files) {
+      if (files.length > MAX_FILES) return "Please choose at most " + MAX_FILES + " files at a time.";
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], n = f.name.toLowerCase();
+        if (f.size > MAX_MB * 1024 * 1024) return f.name + " is bigger than " + MAX_MB + " MB.";
+        if (!/\.(pdf|jpe?g|png)$/.test(n)) return f.name + " is not a PDF, JPG or PNG file.";
+      }
+      return "";
+    }
+    function contentTypeOf(f) {
+      var n = f.name.toLowerCase();
+      return n.slice(-4) === ".pdf" ? "application/pdf" : n.slice(-4) === ".png" ? "image/png" : "image/jpeg";
+    }
+    // Returns { ok: number, errors: [text] }
+    async function uploadDocs(no, files) {
+      var out = { ok: 0, errors: [] };
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], safe = f.name.replace(/[^A-Za-z0-9._-]/g, "_");
+        var r = await db.storage.from(BUCKET).upload(no + "/" + Date.now() + "-" + i + "-" + safe, f,
+          { contentType: contentTypeOf(f), upsert: false });
+        if (r.error) out.errors.push(f.name + ": " + r.error.message); else out.ok++;
+      }
+      return out;
+    }
+
+    var skipCheck = false;
+    function likeSafe(t) { return t.replace(/[\\%_]/g, "\\$&"); }
+    // If the check itself fails, we do not block the complainant: the grievance is still saved.
+    async function findDuplicates(row) {
+      try {
+        var found = {}, base = function () {
+          return db.from("grievances").select("grievance_no,subject,status,submission_date")
+            .eq("category", row.category).neq("status", "Resolved").limit(5);
+        };
+        var a = await base().ilike("contact", likeSafe(row.contact));
+        (a.data || []).forEach(function (d) { found[d.grievance_no] = d; });
+        if (row.neis_no) {
+          var b = await base().ilike("neis_no", likeSafe(row.neis_no));
+          (b.data || []).forEach(function (d) { found[d.grievance_no] = d; });
+        }
+        return Object.keys(found).map(function (k) { return found[k]; });
+      } catch (e) { return []; }
+    }
+
+    form.addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      if (!db) return;
+      btn.disabled = true;
+      btn.textContent = "Submitting...";
+      result.className = ""; result.innerHTML = "";
+      try {
+        var files = Array.prototype.slice.call(document.getElementById("files").files);
+        var fileProblem = checkFiles(files);
+        if (fileProblem) { show("err", esc(fileProblem)); btn.disabled = false; btn.textContent = "Submit grievance"; return; }
+        var row = {
+          complainant_name: val("name"), contact: val("contact"),
+          stakeholder_category: val("stake"), neis_no: val("neis") || null,
+          address: val("address") || null, location: val("location"),
+          category: val("category"), subject: val("subject"),
+          description: val("description"), urgency: val("urgency"),
+          preferred_mode: val("mode")
+        };
+        // Duplicate check: same contact or NEIS No., same category, still not resolved
+        if (!skipCheck) {
+          var dups = await findDuplicates(row);
+          if (dups.length) {
+            show("err", "<b>This may be a duplicate.</b> We already have an open grievance in the same category from the same contact or NEIS No.:<ul>" +
+              dups.map(function (d) {
+                return "<li><b>" + esc(d.grievance_no) + "</b> - " + esc(d.subject) + " (" + esc(d.status) + ", received " + esc(d.submission_date) + ")</li>";
+              }).join("") + "</ul>You can track it with the box below. If your matter is different, press the button.<br>" +
+              "<button type='button' id='force' style='background:#374151'>This is a new matter - submit anyway</button>");
+            document.getElementById("force").onclick = function () { skipCheck = true; form.requestSubmit(); };
+            btn.disabled = false; btn.textContent = "Submit grievance";
+            return;
+          }
+        }
+        var res = await db.from("grievances").insert(row).select().single();
+        if (res.error) throw res.error;
+        var g = res.data;
+        var docNote = "";
+        if (files.length) {
+          var up = await uploadDocs(g.grievance_no, files);
+          docNote = "<br>Documents uploaded: " + up.ok + " of " + files.length + "." +
+            (up.errors.length ? "<br><b>Some documents could not be uploaded.</b> Please pass this error to the team: " + esc(up.errors.join(" | ")) : "");
+        }
+        show(docNote.indexOf("could not") >= 0 ? "err" : "ok", "Thank you. Your grievance is registered.<br>Your Grievance ID:<div class='big'>" +
+          esc(g.grievance_no) + "</div>Please note it down. Department: " + esc(g.department) +
+          ". Reply due by: " + esc(g.due_date) + "." + docNote);
+        form.reset();
+        skipCheck = false;
+      } catch (e) {
+        show("err", "Sorry, we could not save your grievance. Please pass this error to the team: " +
+          esc(e.message || JSON.stringify(e)));
+      }
+      btn.disabled = false;
+      btn.textContent = "Submit grievance";
+    });
   </script>
 </body>
 </html>

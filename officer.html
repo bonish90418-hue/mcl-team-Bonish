@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCL Officer Page</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
+    header { background: #111827; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
+            border-radius: 8px; background: #374151; margin: 0 6px 6px 0; font-size: 16px; }
+    nav a.active { background: #c2410c; }
+    main { max-width: 800px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 14px; }
+    label { display: block; font-weight: bold; font-size: 14px; margin: 10px 0 4px; }
+    input, select, textarea, button { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #9ca3af; border-radius: 8px; background: #fff; font-family: inherit; }
+    textarea { min-height: 90px; }
+    button { background: #c2410c; color: #fff; border: 0; font-weight: bold; cursor: pointer; margin-top: 12px; }
+    button.grey { background: #374151; }
+    button:disabled { background: #9ca3af; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 0 10px; }
+    @media (min-width: 600px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .tile { background: #fff; border-radius: 10px; padding: 10px; border-left: 6px solid #6b7280; text-align: left; font-size: 14px; }
+    .tile b { display: block; font-size: 24px; }
+    .red { border-color: #b91c1c; } .amber { border-color: #d97706; } .green { border-color: #047857; } .blue { border-color: #1d4ed8; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; margin-right: 4px; }
+    .p-green { background: #047857; } .p-amber { background: #d97706; } .p-red { background: #b91c1c; } .p-grey { background: #6b7280; } .p-blue { background: #1d4ed8; }
+    .item { border-left: 6px solid #6b7280; }
+    .item h3 { margin: 0 0 4px; font-size: 17px; }
+    .small { font-size: 14px; color: #4b5563; }
+    .msg { padding: 14px; border-radius: 10px; margin-bottom: 14px; word-break: break-word; }
+    .err { background: #fee2e2; color: #991b1b; } .ok { background: #d1fae5; color: #065f46; }
+    pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; background: #f9fafb; padding: 10px; border-radius: 8px; font-size: 14px; }
+    #editor { border: 2px solid #c2410c; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MCL Grievance Management</h1>
+    <nav>
+      <a href="index.html">Register</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="officer.html" class="active">Officer page</a>
+    </nav>
+  </header>
+  <main>
+    <div id="msg"></div>
+    <div class="tiles" id="tiles"></div>
+
+    <div class="card">
+      <button type="button" id="clearall" style="margin:0 0 6px;background:#b91c1c">Clear all filters</button>
+      <label for="q">Search (Grievance ID, name, NEIS No., subject)</label>
+      <input id="q" placeholder="e.g. MCL-2026-00001">
+      <label for="cname">Complainant name</label>
+      <input id="cname" placeholder="Type the name (part of it also works)">
+      <div class="grid">
+        <div><label for="dfrom">Received from (date)</label><input type="date" id="dfrom"></div>
+        <div><label for="dto">Received up to (date)</label><input type="date" id="dto"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="grey" id="d_today" style="margin-top:8px">Today</button>
+        <button type="button" class="grey" id="d_week" style="margin-top:8px">This week</button>
+        <button type="button" class="grey" id="d_clear" style="margin-top:8px">Clear dates</button>
+      </div>
+      <div class="grid">
+        <div><label for="ddfrom">Due from (SLA due date)</label><input type="date" id="ddfrom"></div>
+        <div><label for="ddto">Due up to (SLA due date)</label><input type="date" id="ddto"></div>
+      </div>
+      <div class="grid">
+        <div><label for="edfrom">Escalated from (date)</label><input type="date" id="edfrom"></div>
+        <div><label for="edto">Escalated up to (date)</label><input type="date" id="edto"></div>
+      </div>
+      <div class="grid">
+        <div><label for="rvfrom">Resolved from (date)</label><input type="date" id="rvfrom"></div>
+        <div><label for="rvto">Resolved up to (date)</label><input type="date" id="rvto"></div>
+      </div>
+      <label for="reop">Reopened</label>
+      <select id="reop">
+        <option value="">All grievances</option>
+        <option value="yes">Reopened only</option>
+        <option value="no">Never reopened</option>
+      </select>
+      <label for="urgf">Urgency</label>
+      <select id="urgf">
+        <option value="">All urgency levels</option>
+        <option>High</option><option>Medium</option><option>Low</option>
+      </select>
+      <label for="lvl">Escalation level</label>
+      <select id="lvl">
+        <option value="">All levels</option>
+        <option value="1">Level 1 - Dealing Officer</option>
+        <option value="2">Level 2 - Section / Department Head</option>
+        <option value="3">Level 3 - Area Head / Competent Authority</option>
+        <option value="4">Level 4 - Corporate / HQ Monitoring</option>
+      </select>
+      <label for="dtext">Department (type a word)</label>
+      <input id="dtext" placeholder="e.g. land, personnel, finance (part of it also works)">
+      <label for="stext">Status (type a word)</label>
+      <input id="stext" placeholder="open, progress or resolved (part of it also works)">
+      <label for="ctext">Category (type a word)</label>
+      <input id="ctext" placeholder="e.g. land, hr, finance (part of it also works)">
+      <label for="rtext">Disposal reply (type words from the reply)</label>
+      <input id="rtext" placeholder="Words from the final reply given when resolving">
+      <label for="otext">Responsible officer (type a name)</label>
+      <input id="otext" placeholder="Type the officer's name (part of it also works)">
+      <label for="atext">Area (type a name)</label>
+      <input id="atext" placeholder="Type the Area (part of it also works)">
+      <label for="neis">NEIS No.</label>
+      <input id="neis" placeholder="Type the NEIS No. (part of it also works)" inputmode="text">
+      <div class="grid">
+        <div><label for="view">Show</label>
+          <select id="view">
+            <option value="all">All grievances</option>
+            <option value="new">Newly received (no officer yet)</option>
+            <option value="pending">Pending</option>
+            <option value="due">Due within 5 days</option>
+            <option value="overdue">Overdue</option>
+            <option value="escalated">Escalated</option>
+            <option value="disposed">Disposed</option>
+            <option value="dup">Possible duplicates</option>
+            <option value="alert">Alert needed (due soon, overdue or escalated)</option>
+          </select></div>
+        <div><label for="officer">Responsible officer</label><select id="officer"></select></div>
+        <div><label for="category">Category</label>
+          <select id="category"><option value="">All</option><option>Land and R&amp;R</option><option>Employment and HR</option><option>Finance</option><option>Project / Area</option><option>Other</option></select></div>
+        <div><label for="area">Area</label><select id="area"></select></div>
+      </div>
+    </div>
+
+    <div id="editor" class="card" hidden></div>
+    <div id="list"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    var db = null, all = [], openId = null;
+    var msg = document.getElementById("msg");
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function say(kind, text) { msg.innerHTML = "<div class='msg " + kind + "'>" + text + "</div>"; }
+    function errText(prefix, e) { say("err", prefix + " Please pass this error to the team: " + esc(e.message || JSON.stringify(e))); }
+    function dayNum(d) { return Math.floor(new Date(d + "T00:00:00").getTime() / 86400000); }
+    var today = dayNum(new Date().toISOString().slice(0, 10));
+    function pending(g) { return g.status !== "Resolved"; }
+    function left(g) { return g.due_date ? dayNum(g.due_date) - today : null; }
+    function overdue(g) { return pending(g) && left(g) !== null && left(g) < 0; }
+    function due(g) { return pending(g) && left(g) !== null && left(g) >= 0 && left(g) <= 5; }
+
+    try { db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY); }
+    catch (e) { errText("The database settings are not ready.", e); }
+
+    async function load() {
+      if (!db) return;
+      try {
+        // Automatic escalation: late grievances move up a level (see database/02-auto-escalation.sql)
+        var auto = await db.rpc("escalate_overdue_grievances");
+        if (auto.error) {
+          say("err", "Automatic escalation could not run (has 02-auto-escalation.sql been run in Supabase?). Error: " + esc(auto.error.message));
+        } else if (auto.data > 0) {
+          say("ok", esc(auto.data) + " late grievance(s) were escalated automatically just now.");
+        }
+        var out = [], from = 0;
+        while (true) {
+          var r = await db.from("grievances").select("*").order("created_at", { ascending: false }).range(from, from + 999);
+          if (r.error) throw r.error;
+          out = out.concat(r.data);
+          if (r.data.length < 1000) break;
+          from += 1000;
+        }
+        all = out;
+        fillSelect("officer", "All officers", all.map(function (g) { return g.assigned_officer; }));
+        fillSelect("area", "All areas", all.map(function (g) { return g.location; }));
+        render();
+      } catch (e) { errText("Sorry, the grievances could not load.", e); }
+    }
+    function fillSelect(id, first, values) {
+      var el = document.getElementById(id), keep = el.value;
+      var uniq = values.filter(function (v, i) { return v && values.indexOf(v) === i; }).sort();
+      el.innerHTML = "<option value=''>" + first + "</option>" +
+        uniq.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
+      el.value = keep;
+    }
+
+    // Possible duplicate: another pending grievance, same category, same contact or same NEIS No.
+    function dupKey(g) { return (g.contact || "").trim().toLowerCase(); }
+    function isDup(g) {
+      if (!pending(g)) return false;
+      return all.some(function (o) {
+        return o.id !== g.id && pending(o) && o.category === g.category &&
+          ((dupKey(o) && dupKey(o) === dupKey(g)) || (o.neis_no && g.neis_no && o.neis_no.trim().toLowerCase() === g.neis_no.trim().toLowerCase()));
+      });
+    }
+
+    // The disposal reply is the remark that was saved together with the change to Resolved.
+    // Each remark entry is separated by a blank line; the one containing "to Resolved" is the reply.
+    function disposalReply(g) {
+      return (g.remarks || "").split("\n\n").filter(function (e) { return / to Resolved/.test(e); }).join(" ").toLowerCase();
+    }
+
+    function matches(g) {
+      var q = document.getElementById("q").value.trim().toLowerCase();
+      if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
+      var df = document.getElementById("dfrom").value, dt = document.getElementById("dto").value;
+      if (df && g.submission_date < df) return false;
+      if (dt && g.submission_date > dt) return false;
+      var ddf = document.getElementById("ddfrom").value, ddt = document.getElementById("ddto").value;
+      if ((ddf || ddt) && !g.due_date) return false;
+      if (ddf && g.due_date < ddf) return false;
+      if (ddt && g.due_date > ddt) return false;
+      var rt = document.getElementById("rtext").value.trim().toLowerCase();
+      if (rt && disposalReply(g).indexOf(rt) < 0) return false;
+      var rvf = document.getElementById("rvfrom").value, rvt = document.getElementById("rvto").value;
+      if (rvf || rvt) {
+        var rd = g.resolved_at ? localDate(new Date(g.resolved_at)) : "";
+        if (!rd || (rvf && rd < rvf) || (rvt && rd > rvt)) return false;
+      }
+      var edf = document.getElementById("edfrom").value, edt = document.getElementById("edto").value;
+      if (edf || edt) {
+        var ed = g.escalated_at ? g.escalated_at.slice(0, 10) : "";
+        if (!ed || (edf && ed < edf) || (edt && ed > edt)) return false;
+      }
+      var rp = document.getElementById("reop").value;
+      if (rp === "yes" && !g.reopened) return false;
+      if (rp === "no" && g.reopened) return false;
+      var uf = document.getElementById("urgf").value;
+      if (uf && g.urgency !== uf) return false;
+      var lv = document.getElementById("lvl").value;
+      if (lv && String(g.escalation_level) !== lv) return false;
+      var dp = document.getElementById("dtext").value.trim().toLowerCase();
+      if (dp && (g.department || "").toLowerCase().indexOf(dp) < 0) return false;
+      var st = document.getElementById("stext").value.trim().toLowerCase();
+      if (st && (g.status || "").toLowerCase().indexOf(st) < 0) return false;
+      var ct = document.getElementById("ctext").value.trim().toLowerCase();
+      if (ct && (g.category || "").toLowerCase().indexOf(ct) < 0) return false;
+      var ot = document.getElementById("otext").value.trim().toLowerCase();
+      if (ot && (g.assigned_officer || "").toLowerCase().indexOf(ot) < 0) return false;
+      var at = document.getElementById("atext").value.trim().toLowerCase();
+      if (at && (g.location || "").toLowerCase().indexOf(at) < 0) return false;
+      var cn = document.getElementById("cname").value.trim().toLowerCase();
+      if (cn && (g.complainant_name || "").toLowerCase().indexOf(cn) < 0) return false;
+      var n = document.getElementById("neis").value.trim().toLowerCase();
+      if (n && (g.neis_no || "").toLowerCase().indexOf(n) < 0) return false;
+      var o = document.getElementById("officer").value, c = document.getElementById("category").value, a = document.getElementById("area").value;
+      if (o && g.assigned_officer !== o) return false;
+      if (c && g.category !== c) return false;
+      if (a && g.location !== a) return false;
+      var v = document.getElementById("view").value;
+      return v === "all" || (v === "new" && pending(g) && !g.assigned_officer) || (v === "pending" && pending(g)) ||
+        (v === "due" && due(g)) || (v === "overdue" && overdue(g)) ||
+        (v === "escalated" && pending(g) && g.escalation_level > 1) || (v === "disposed" && !pending(g)) ||
+        (v === "dup" && isDup(g)) || (v === "alert" && (due(g) || overdue(g) || (pending(g) && g.escalation_level > 1)));
+    }
+
+    function render() {
+      var t = [
+        ["New", all.filter(function (g) { return pending(g) && !g.assigned_officer; }).length, "blue"],
+        ["Pending", all.filter(pending).length, "amber"],
+        ["Due soon", all.filter(due).length, "amber"],
+        ["Overdue", all.filter(overdue).length, "red"],
+        ["Escalated", all.filter(function (g) { return pending(g) && g.escalation_level > 1; }).length, "red"],
+        ["Disposed", all.filter(function (g) { return !pending(g); }).length, "green"]
+      ];
+      document.getElementById("tiles").innerHTML = t.map(function (x) {
+        return "<div class='tile " + x[2] + "'><b>" + x[1] + "</b>" + x[0] + "</div>";
+      }).join("");
+
+      var rank = { High: 0, Medium: 1, Low: 2 };
+      var list = all.filter(matches).sort(function (a, b) {
+        if (pending(a) !== pending(b)) return pending(a) ? -1 : 1;
+        var la = left(a) === null ? 999 : left(a), lb = left(b) === null ? 999 : left(b);
+        return (la - lb) || (rank[a.urgency] - rank[b.urgency]);
+      });
+      document.getElementById("list").innerHTML = list.length ? list.slice(0, 100).map(function (g) {
+        var l = left(g), col = !pending(g) ? "p-green" : l === null ? "p-grey" : l < 0 ? "p-red" : l <= 5 ? "p-amber" : "p-green";
+        var dueTxt = !pending(g) ? "Disposed" : l === null ? "No due date" : l < 0 ? "Overdue by " + (-l) + " days" : l + " days left";
+        var action = !pending(g) ? "" : !g.assigned_officer ? "Action: assign an officer" : overdue(g) ? "Action: reply now" : "";
+        return "<div class='card item' style='border-color:" + (col === "p-red" ? "#b91c1c" : col === "p-amber" ? "#d97706" : "#047857") + "'>" +
+          "<h3>" + esc(g.grievance_no) + " - " + esc(g.subject) + "</h3>" +
+          "<div class='small'>" + esc(g.complainant_name) + (g.neis_no ? " (NEIS " + esc(g.neis_no) + ")" : "") + " | " + esc(g.location) + " | " + esc(g.category) + "</div>" +
+          "<p><span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-grey'>" + esc(g.urgency) + "</span>" +
+          "<span class='pill p-blue'>" + esc(g.status) + "</span><span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" +
+          (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
+          ((g.remarks || "").indexOf("SYSTEM: automatically escalated") >= 0 ? "<span class='pill p-red'>Auto-escalated</span>" : "") +
+          (isDup(g) ? "<span class='pill p-amber'>Possible duplicate</span>" : "") + "</p>" +
+          "<div class='small'>" + (g.escalated_at ? "Escalated on " + esc(g.escalated_at.slice(0, 10)) + " | " : "") + "Officer: " + esc(g.assigned_officer || "Not assigned") + (action ? " | <b>" + action + "</b>" : "") + "</div>" +
+          "<button class='grey' data-id='" + esc(g.id) + "'>Open and update</button></div>";
+      }).join("") : "<div class='card'>No grievances match.</div>";
+    }
+
+    var LEVELS = ["Level 1 - Dealing Officer", "Level 2 - Section / Department Head", "Level 3 - Area Head / Competent Authority", "Level 4 - Corporate / HQ Monitoring"];
+    function openEditor(id) {
+      var g = all.find(function (x) { return x.id === id; });
+      if (!g) return;
+      openId = id;
+      var ed = document.getElementById("editor");
+      ed.hidden = false;
+      ed.innerHTML = "<h2>" + esc(g.grievance_no) + "</h2>" +
+        "<p class='small'>" + esc(g.complainant_name) + " (" + esc(g.stakeholder_category) + "), contact: " + esc(g.contact) +
+        (g.neis_no ? ", NEIS: " + esc(g.neis_no) : "") + "<br>Received: " + esc(g.submission_date) + " | Department: " + esc(g.department) +
+        " | Due: " + esc(g.due_date) + "</p><p><b>" + esc(g.subject) + "</b></p><pre>" + esc(g.description) + "</pre>" +
+        "<label>Documents</label><div id='e_docs' class='small'>Loading...</div>" +
+        "<input id='e_files' type='file' multiple accept='.pdf,.jpg,.jpeg,.png,image/*,application/pdf' style='margin-top:8px'>" +
+        "<button type='button' class='grey' id='e_upload'>Upload document</button>" +
+        "<label>History and remarks</label><pre>" + esc(g.remarks || "No remarks yet.") + "</pre>" +
+        "<label for='e_off'>Responsible officer (made-up name and designation)</label><input id='e_off' value='" + esc(g.assigned_officer || "") + "'>" +
+        "<label for='e_by'>Your name and designation (made up) *</label><input id='e_by'>" +
+        "<label for='e_status'>Status</label><select id='e_status'>" +
+        ["Open", "In progress", "Resolved"].map(function (s) { return "<option" + (s === g.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        "<label for='e_urg'>Urgency</label><select id='e_urg'>" +
+        ["Low", "Medium", "High"].map(function (s) { return "<option" + (s === g.urgency ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        "<label for='e_lvl'>Escalation level</label><select id='e_lvl'>" +
+        LEVELS.map(function (s, i) { return "<option value='" + (i + 1) + "'" + (i + 1 === g.escalation_level ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        "<label for='e_note'>New remark / action taken *</label><textarea id='e_note'></textarea>" +
+        "<div class='card' style='background:#f9fafb;margin:14px 0 0'><b>Send an alert</b>" +
+        "<p class='small'>This opens your own email or SMS app with the message ready. You press Send there. The complainant's contact: " + esc(g.contact) + "</p>" +
+        "<label for='e_tpl'>Message</label><select id='e_tpl'>" +
+        "<option value='ack'>Acknowledgement to complainant</option>" +
+        "<option value='upd'>Status update to complainant</option>" +
+        "<option value='res'>Disposal / reply to complainant</option>" +
+        "<option value='off'>Reminder to responsible officer (overdue / due soon)</option></select>" +
+        "<button class='grey' id='a_mail'>Open email</button><button class='grey' id='a_sms'>Open SMS</button></div>" +
+        "<button id='save'>Save update</button><button class='grey' id='close'>Close without saving</button>";
+      document.getElementById("close").onclick = function () { ed.hidden = true; };
+      document.getElementById("save").onclick = save;
+      document.getElementById("e_upload").onclick = function () { addDocs(g); };
+      loadDocs(g);
+      document.getElementById("a_mail").onclick = function () { sendAlert(g, "mail"); };
+      document.getElementById("a_sms").onclick = function () { sendAlert(g, "sms"); };
+      ed.scrollIntoView({ behavior: "smooth" });
+    }
+
+
+    // ---- Supporting documents (stored in Supabase Storage bucket "grievance-docs") ----
+    var BUCKET = "grievance-docs", MAX_FILES = 3, MAX_MB = 5;
+    function checkFiles(files) {
+      if (files.length > MAX_FILES) return "Please choose at most " + MAX_FILES + " files at a time.";
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], n = f.name.toLowerCase();
+        if (f.size > MAX_MB * 1024 * 1024) return f.name + " is bigger than " + MAX_MB + " MB.";
+        if (!/\.(pdf|jpe?g|png)$/.test(n)) return f.name + " is not a PDF, JPG or PNG file.";
+      }
+      return "";
+    }
+    function contentTypeOf(f) {
+      var n = f.name.toLowerCase();
+      return n.slice(-4) === ".pdf" ? "application/pdf" : n.slice(-4) === ".png" ? "image/png" : "image/jpeg";
+    }
+    // Returns { ok: number, errors: [text] }
+    async function uploadDocs(no, files) {
+      var out = { ok: 0, errors: [] };
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], safe = f.name.replace(/[^A-Za-z0-9._-]/g, "_");
+        var r = await db.storage.from(BUCKET).upload(no + "/" + Date.now() + "-" + i + "-" + safe, f,
+          { contentType: contentTypeOf(f), upsert: false });
+        if (r.error) out.errors.push(f.name + ": " + r.error.message); else out.ok++;
+      }
+      return out;
+    }
+
+    async function loadDocs(g) {
+      var box = document.getElementById("e_docs");
+      if (!box) return;
+      try {
+        var l = await db.storage.from(BUCKET).list(g.grievance_no, { limit: 100, sortBy: { column: "name", order: "asc" } });
+        if (l.error) throw l.error;
+        var files = (l.data || []).filter(function (x) { return x.name && x.id; });
+        if (!files.length) { box.textContent = "No documents yet."; return; }
+        var s = await db.storage.from(BUCKET).createSignedUrls(files.map(function (x) { return g.grievance_no + "/" + x.name; }), 3600);
+        if (s.error) throw s.error;
+        box.innerHTML = s.data.map(function (x, i) {
+          var shown = files[i].name.replace(/^\d+-\d+-/, "");
+          return "<div><a href='" + esc(x.signedUrl) + "' target='_blank' rel='noopener'>" + esc(shown) + "</a></div>";
+        }).join("");
+      } catch (e) { box.innerHTML = "<span style='color:#991b1b'>Could not load documents (has 03-documents.sql been run?). Error: " + esc(e.message || JSON.stringify(e)) + "</span>"; }
+    }
+    async function addDocs(g) {
+      var input = document.getElementById("e_files"), files = Array.prototype.slice.call(input.files);
+      if (!files.length) { say("err", "Please choose a file first."); return; }
+      var problem = checkFiles(files);
+      if (problem) { say("err", esc(problem)); return; }
+      var b = document.getElementById("e_upload"); b.disabled = true; b.textContent = "Uploading...";
+      var up = await uploadDocs(g.grievance_no, files);
+      b.disabled = false; b.textContent = "Upload document";
+      if (up.errors.length) say("err", "Some documents could not be uploaded. Please pass this error to the team: " + esc(up.errors.join(" | ")));
+      else say("ok", up.ok + " document(s) uploaded. Add a remark below so the history is complete.");
+      input.value = "";
+      loadDocs(g);
+    }
+
+    // Alerts without a server: open the user's own email / SMS app with the text ready.
+    function alertText(g, tpl) {
+      var id = g.grievance_no, l = left(g);
+      var end = "\nMCL Grievance Cell (practice tool)";
+      if (tpl === "ack") return ["Grievance " + id + " received",
+        "Dear " + g.complainant_name + ",\nYour grievance (" + g.subject + ") is registered. Grievance ID: " + id +
+        ". Expected reply by " + g.due_date + "." + end];
+      if (tpl === "upd") return ["Update on grievance " + id,
+        "Dear " + g.complainant_name + ",\nYour grievance " + id + " is now: " + g.status + ". Responsible officer: " +
+        (g.assigned_officer || "to be assigned") + ". Expected reply by " + g.due_date + "." + end];
+      if (tpl === "res") return ["Reply to grievance " + id,
+        "Dear " + g.complainant_name + ",\nYour grievance " + id + " (" + g.subject + ") has been disposed. Please contact the office if you are not satisfied." + end];
+      var when = l === null ? "has no due date" : l < 0 ? "is OVERDUE by " + (-l) + " days" : "is due in " + l + " days";
+      return ["Reminder: grievance " + id, "Grievance " + id + " (" + g.subject + ", " + g.location + ") " + when +
+        ". Escalation level: " + g.escalation_level + ". Please take action." + end];
+    }
+    function sendAlert(g, how) {
+      var tpl = document.getElementById("e_tpl").value, t = alertText(g, tpl);
+      var toOfficer = tpl === "off", c = g.contact || "";
+      var isMail = /\S+@\S+\.\S+/.test(c), phone = c.replace(/[^\d+]/g, "");
+      if (!toOfficer && how === "mail" && !isMail) { say("err", "The complainant's contact (" + esc(c) + ") is not an email address. Try SMS."); return; }
+      if (!toOfficer && how === "sms" && (isMail || phone.length < 7)) { say("err", "The complainant's contact (" + esc(c) + ") is not a phone number. Try email."); return; }
+      if (how === "mail") {
+        location.href = "mailto:" + (toOfficer ? "" : encodeURIComponent(c)) + "?subject=" + encodeURIComponent(t[0]) + "&body=" + encodeURIComponent(t[1]);
+      } else {
+        location.href = "sms:" + (toOfficer ? "" : phone) + "?&body=" + encodeURIComponent(t[1]);
+      }
+      say("ok", "Your " + (how === "mail" ? "email" : "SMS") + " app should open with the message ready. Press Send there, then add a remark below so the history is complete.");
+    }
+
+    async function save() {
+      var g = all.find(function (x) { return x.id === openId; });
+      var by = document.getElementById("e_by").value.trim(), note = document.getElementById("e_note").value.trim();
+      if (!by || !note) { say("err", "Please fill in your name and a remark before saving."); return; }
+      var status = document.getElementById("e_status").value, lvl = parseInt(document.getElementById("e_lvl").value, 10);
+      var off = document.getElementById("e_off").value.trim() || null, urg = document.getElementById("e_urg").value;
+      var changes = [];
+      if (off !== g.assigned_officer) changes.push("officer: " + (off || "none"));
+      if (status !== g.status) changes.push("status: " + g.status + " to " + status);
+      if (lvl !== g.escalation_level) changes.push("level: " + g.escalation_level + " to " + lvl);
+      if (urg !== g.urgency) changes.push("urgency: " + g.urgency + " to " + urg);
+      var upd = { assigned_officer: off, status: status, urgency: urg, escalation_level: lvl };
+      if (g.status === "Resolved" && status !== "Resolved") { upd.reopened = true; upd.resolved_at = null; changes.push("REOPENED"); }
+      if (lvl > g.escalation_level) upd.escalated_at = new Date().toISOString();
+      if (status === "Resolved" && g.status !== "Resolved") upd.resolved_at = new Date().toISOString();
+      var stamp = new Date().toLocaleString();
+      upd.remarks = (g.remarks ? g.remarks + "\n\n" : "") + "[" + stamp + "] " + by + ": " + note +
+        (changes.length ? " (" + changes.join("; ") + ")" : "");
+      var btn = document.getElementById("save"); btn.disabled = true; btn.textContent = "Saving...";
+      try {
+        var r = await db.from("grievances").update(upd).eq("id", g.id).select().single();
+        // If 04-escalation-date.sql has not been run yet, save everything else without the date
+        if (r.error && upd.escalated_at && /escalated_at/.test(r.error.message || "")) {
+          delete upd.escalated_at;
+          r = await db.from("grievances").update(upd).eq("id", g.id).select().single();
+        }
+        if (r.error) throw r.error;
+        all[all.indexOf(g)] = r.data;
+        document.getElementById("editor").hidden = true;
+        say("ok", "Saved. " + esc(g.grievance_no) + " is updated.");
+        fillSelect("officer", "All officers", all.map(function (x) { return x.assigned_officer; }));
+        render();
+      } catch (e) { errText("Sorry, the update could not be saved.", e); btn.disabled = false; btn.textContent = "Save update"; }
+    }
+
+    document.getElementById("list").addEventListener("click", function (ev) {
+      var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
+      if (id) openEditor(id);
+    });
+    ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "rtext", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+      document.getElementById(id).addEventListener("input", render);
+    });
+    // Clear all filters: empty every box and set every drop-down back to its first choice
+    document.getElementById("clearall").onclick = function () {
+      ["q", "dfrom", "dto", "ddfrom", "ddto", "edfrom", "edto", "rvfrom", "rvto", "rtext", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
+        document.getElementById(id).value = "";
+      });
+      ["view", "officer", "category", "area", "reop", "urgf", "lvl"].forEach(function (id) {
+        document.getElementById(id).selectedIndex = 0;
+      });
+      render();
+    };
+
+    // Date shortcuts (local date on the user's device; week = Monday to today)
+    function localDate(d) {
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    function setDates(from, to) {
+      document.getElementById("dfrom").value = from;
+      document.getElementById("dto").value = to;
+      render();
+    }
+    document.getElementById("d_today").onclick = function () { var t = localDate(new Date()); setDates(t, t); };
+    document.getElementById("d_week").onclick = function () {
+      var n = new Date(), mon = new Date(n.getFullYear(), n.getMonth(), n.getDate() - ((n.getDay() + 6) % 7));
+      setDates(localDate(mon), localDate(n));
+    };
+    document.getElementById("d_clear").onclick = function () { setDates("", ""); };
+
+    // A link like officer.html?id=MCL-2026-00001 (from the dashboard) fills the search box
+    var linkId = new URLSearchParams(location.search).get("id");
+    if (linkId) document.getElementById("q").value = linkId;
+    load();
+  </script>
+</body>
+</html>

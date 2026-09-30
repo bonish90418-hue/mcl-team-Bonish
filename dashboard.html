@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCL Grievance Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
+    header { background: #111827; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
+            border-radius: 8px; background: #374151; margin-right: 6px; font-size: 16px; }
+    nav a.active { background: #c2410c; }
+    main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 16px; }
+    .card h2 { margin: 0 0 10px; font-size: 18px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .filters div { flex: 1 1 140px; }
+    label { display: block; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+    input, select, button { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #9ca3af; border-radius: 8px; background: #fff; }
+    button { background: #c2410c; color: #fff; border: 0; font-weight: bold; cursor: pointer; }
+    .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    @media (min-width: 700px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+    .kpi { background: #fff; border-radius: 12px; padding: 14px; border-left: 8px solid #6b7280; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .kpi .n { font-size: 28px; font-weight: bold; }
+    .kpi .l { font-size: 14px; color: #4b5563; }
+    .green { border-color: #047857; } .amber { border-color: #d97706; } .red { border-color: #b91c1c; } .blue { border-color: #1d4ed8; }
+    .charts { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 700px) { .charts { grid-template-columns: 1fr 1fr; } }
+    .chartbox { position: relative; height: 260px; }
+    .tablewrap { overflow-x: auto; }
+    .heat td.c, .heat th.c { text-align: center; min-width: 64px; }
+    .heat td.c { font-weight: bold; }
+    .legend { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #4b5563; margin-top: 8px; }
+    .legend span.bar { flex: 0 0 120px; height: 12px; border-radius: 6px; background: linear-gradient(to right, #fff, #b91c1c); border: 1px solid #d1d5db; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; }
+    .p-green { background: #047857; } .p-amber { background: #d97706; } .p-red { background: #b91c1c; } .p-grey { background: #6b7280; }
+    .msg { padding: 14px; border-radius: 10px; margin-bottom: 16px; word-break: break-word; }
+    .err { background: #fee2e2; color: #991b1b; } .info { background: #dbeafe; color: #1e3a8a; }
+    .note { font-size: 14px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MCL Grievance Management</h1>
+    <nav>
+      <a href="index.html">Register</a>
+      <a href="dashboard.html" class="active">Dashboard</a>
+      <a href="officer.html">Officer page</a>
+    </nav>
+  </header>
+  <main>
+    <div id="msg"></div>
+
+    <div class="card">
+      <h2>Find a grievance by ID</h2>
+      <label for="gid">Grievance ID (part of it also works)</label>
+      <input id="gid" placeholder="MCL-2026-00001" autocapitalize="characters">
+      <div id="gidresult" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Period</h2>
+      <div class="filters">
+        <div><label for="from">From date</label><input type="date" id="from"></div>
+        <div><label for="to">To date</label><input type="date" id="to"></div>
+        <div><button id="apply">Apply</button></div>
+        <div><button id="reset" style="background:#374151">Show all</button></div>
+      </div>
+      <button id="xl" style="margin-top:12px;background:#047857">Download Excel report</button>
+      <button id="pdf" style="margin-top:10px;background:#1d4ed8">Download PDF report</button>
+      <p class="note">Both files follow the period chosen above. They contain the same reports, one after another.</p>
+      <p class="note" id="periodnote"></p>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="charts">
+      <div class="card"><h2>Status</h2><div class="chartbox"><canvas id="cStatus"></canvas></div></div>
+      <div class="card"><h2>Month-wise trend</h2><div class="chartbox"><canvas id="cMonth"></canvas></div></div>
+      <div class="card"><h2>Category-wise</h2><div class="chartbox"><canvas id="cCat"></canvas></div></div>
+      <div class="card"><h2>Area-wise</h2><div class="chartbox"><canvas id="cArea"></canvas></div></div>
+      <div class="card"><h2>Department-wise</h2><div class="chartbox"><canvas id="cDept"></canvas></div></div>
+      <div class="card"><h2>Officer-wise pending</h2><div class="chartbox"><canvas id="cOff"></canvas></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Area-wise heat map</h2>
+      <label for="heatmode" style="font-size:14px;font-weight:bold">Count</label>
+      <select id="heatmode" style="margin-bottom:10px">
+        <option value="all">All grievances received</option>
+        <option value="pending">Pending only</option>
+        <option value="overdue">Overdue only</option>
+      </select>
+      <div class="tablewrap"><table class="heat" id="heat"></table></div>
+      <div class="legend">Fewer <span class="bar"></span> More (darker red = more grievances)</div>
+    </div>
+
+    <div class="card">
+      <h2>Recurring grievances - where to look for root causes</h2>
+      <p class="note">Same Area and same category repeating again and again. The last column is only a pointer for the team, not a proven cause.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Area</th><th>Category</th><th>Count</th><th>Pending</th><th>Overdue</th><th>Reopened</th><th>Repeat complainants</th><th>Look into</th></tr></thead>
+        <tbody id="recur"></tbody>
+      </table></div>
+      <h2 style="margin-top:16px">Words that keep coming up in subjects</h2>
+      <div id="words"></div>
+    </div>
+
+    <div class="card">
+      <h2>Pending grievances (most urgent and oldest first)</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>ID</th><th>Area</th><th>Category</th><th>Urgency</th><th>Status</th><th>Due</th><th>Days pending</th><th>Level</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="config.js"></script>
+  <script>
+    var all = [], charts = {};
+    var COLORS = ["#c2410c", "#1d4ed8", "#047857", "#7c3aed", "#d97706", "#0e7490", "#be185d", "#4b5563"];
+    var msg = document.getElementById("msg");
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function showErr(text) {
+      msg.innerHTML = "<div class='msg err'>Sorry, the dashboard could not load. Please pass this error to the team: " + esc(text) + "</div>";
+    }
+    function dayNum(d) { return Math.floor(new Date(d + "T00:00:00").getTime() / 86400000); }
+    var todayStr = new Date().toISOString().slice(0, 10);
+    var today = dayNum(todayStr);
+
+    async function load() {
+      try {
+        var db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+        // Automatic escalation: late grievances move up a level (see database/02-auto-escalation.sql)
+        var esc1 = await db.rpc("escalate_overdue_grievances");
+        if (esc1.error) {
+          msg.innerHTML = "<div class='msg info'>Automatic escalation could not run (has 02-auto-escalation.sql been run in Supabase?). Error: " + esc(esc1.error.message) + "</div>";
+        } else if (esc1.data > 0) {
+          msg.innerHTML = "<div class='msg info'>" + esc(esc1.data) + " late grievance(s) were escalated automatically just now.</div>";
+        }
+        var out = [], from = 0, step = 1000;
+        while (true) {
+          var res = await db.from("grievances").select("*").order("created_at", { ascending: false }).range(from, from + step - 1);
+          if (res.error) throw res.error;
+          out = out.concat(res.data);
+          if (res.data.length < step) break;
+          from += step;
+        }
+        all = out;
+        render();
+        renderIdSearch();
+      } catch (e) { showErr(e.message || JSON.stringify(e)); }
+    }
+
+    function filtered() {
+      var f = document.getElementById("from").value, t = document.getElementById("to").value;
+      return all.filter(function (g) {
+        var d = g.submission_date;
+        return (!f || d >= f) && (!t || d <= t);
+      });
+    }
+    function isOverdue(g) { return g.status !== "Resolved" && g.due_date && dayNum(g.due_date) < today; }
+    function countBy(list, fn) {
+      var m = {};
+      list.forEach(function (g) { var k = fn(g) || "Not set"; m[k] = (m[k] || 0) + 1; });
+      return m;
+    }
+    function drawChart(id, type, map, label) {
+      var labels = Object.keys(map), data = labels.map(function (k) { return map[k]; });
+      if (charts[id]) charts[id].destroy();
+      var pie = type === "doughnut";
+      charts[id] = new Chart(document.getElementById(id), {
+        type: type,
+        data: { labels: labels, datasets: [{ label: label, data: data,
+          backgroundColor: pie ? labels.map(function (l, i) { return COLORS[i % COLORS.length]; }) : "#c2410c",
+          borderColor: "#c2410c" }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: pie } },
+          scales: pie ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+    }
+
+    // ---------- Recurring grievances (root-cause pointers) ----------
+    var STOP = "the and for with from that this have has not are was were been about please regarding issue issues problem problems related matter matters our your their which when where what into over under after before since still again pending status request need needs not received".split(" ");
+    function recurring(list) {
+      var m = {};
+      list.forEach(function (g) {
+        var k = (g.location || "Not set") + "||" + g.category;
+        m[k] = m[k] || { area: g.location || "Not set", cat: g.category, n: 0, pend: 0, over: 0, reop: 0, who: {} };
+        var r = m[k]; r.n++;
+        if (g.status !== "Resolved") r.pend++;
+        if (isOverdue(g)) r.over++;
+        if (g.reopened) r.reop++;
+        var w = (g.contact || "").trim().toLowerCase();
+        if (w) r.who[w] = (r.who[w] || 0) + 1;
+      });
+      return Object.keys(m).map(function (k) {
+        var r = m[k];
+        r.repeat = Object.keys(r.who).filter(function (w) { return r.who[w] > 1; }).length;
+        var hints = [];
+        if (r.over >= Math.max(1, r.n / 3)) hints.push("delays in processing");
+        if (r.reop > 0) hints.push("replies not satisfying");
+        if (r.repeat > 0) hints.push("earlier complaints not fixed");
+        if (r.pend === r.n && r.n >= 3) hints.push("nobody closing these");
+        r.hint = hints.length ? hints.join("; ") : "same issue in one place - check the subjects";
+        return r;
+      }).filter(function (r) { return r.n >= 2; })
+        .sort(function (a, b) { return (b.n - a.n) || (b.over - a.over); });
+    }
+    function wordCounts(list) {
+      var c = {};
+      list.forEach(function (g) {
+        var seen = {};
+        (g.subject || "").toLowerCase().split(/[^a-z0-9&]+/).forEach(function (w) {
+          if (w.length >= 4 && STOP.indexOf(w) < 0 && !seen[w]) { seen[w] = 1; c[w] = (c[w] || 0) + 1; }
+        });
+      });
+      return Object.keys(c).filter(function (w) { return c[w] >= 2; })
+        .sort(function (a, b) { return c[b] - c[a]; }).slice(0, 15).map(function (w) { return [w, c[w]]; });
+    }
+    function renderRecurring(list) {
+      var rec = recurring(list).slice(0, 10);
+      document.getElementById("recur").innerHTML = rec.length ? rec.map(function (r) {
+        return "<tr><td>" + esc(r.area) + "</td><td>" + esc(r.cat) + "</td><td><b>" + r.n + "</b></td><td>" + r.pend +
+          "</td><td>" + (r.over ? "<span class='pill p-red'>" + r.over + "</span>" : 0) + "</td><td>" + r.reop +
+          "</td><td>" + r.repeat + "</td><td>" + esc(r.hint) + "</td></tr>";
+      }).join("") : "<tr><td colspan='8'>Nothing repeats yet. It shows when an Area has 2 or more grievances in the same category.</td></tr>";
+      var w = wordCounts(list);
+      document.getElementById("words").innerHTML = w.length ? w.map(function (x) {
+        return "<span class='pill p-blue' style='margin:0 6px 6px 0;font-size:14px;padding:4px 12px'>" + esc(x[0]) + " (" + x[1] + ")</span>";
+      }).join("") : "<span class='note'>No repeating words yet.</span>";
+    }
+
+    function renderHeat(list) {
+      var mode = document.getElementById("heatmode").value;
+      var use = list.filter(function (g) {
+        return mode === "all" || (mode === "pending" && g.status !== "Resolved") || (mode === "overdue" && isOverdue(g));
+      });
+      var cats = ["Land and R&R", "Employment and HR", "Finance", "Project / Area", "Other"];
+      var areas = {};
+      use.forEach(function (g) {
+        var a = g.location || "Not set";
+        areas[a] = areas[a] || { total: 0 };
+        areas[a][g.category] = (areas[a][g.category] || 0) + 1;
+        areas[a].total++;
+      });
+      var names = Object.keys(areas).sort(function (a, b) { return areas[b].total - areas[a].total; });
+      var max = 0;
+      names.forEach(function (a) { cats.forEach(function (c) { max = Math.max(max, areas[a][c] || 0); }); });
+      function cell(n, top) {
+        if (!n) return "<td class='c' style='color:#9ca3af'>0</td>";
+        var k = n / top;
+        var r = Math.round(255 - k * (255 - 185)), gb = Math.round(255 - k * (255 - 28));
+        return "<td class='c' style='background:rgb(" + r + "," + gb + "," + gb + ");color:" + (k > 0.5 ? "#fff" : "#1f2937") + "'>" + n + "</td>";
+      }
+      var head = "<tr><th>Area</th>" + cats.map(function (c) { return "<th class='c'>" + esc(c) + "</th>"; }).join("") + "<th class='c'>Total</th></tr>";
+      var body = names.length ? names.map(function (a) {
+        return "<tr><td>" + esc(a) + "</td>" + cats.map(function (c) { return cell(areas[a][c] || 0, max); }).join("") +
+          cell(areas[a].total, areas[names[0]].total) + "</tr>";
+      }).join("") : "<tr><td colspan='" + (cats.length + 2) + "'>No grievances to show.</td></tr>";
+      document.getElementById("heat").innerHTML = head + body;
+    }
+
+    function render() {
+      var list = filtered();
+      renderHeat(list);
+      renderRecurring(list);
+      var pending = list.filter(function (g) { return g.status !== "Resolved"; });
+      var resolved = list.filter(function (g) { return g.status === "Resolved"; });
+      var overdue = list.filter(isOverdue);
+      var escalated = list.filter(function (g) { return g.escalation_level > 1; });
+      var reopened = list.filter(function (g) { return g.reopened; });
+
+      var times = resolved.filter(function (g) { return g.resolved_at; }).map(function (g) {
+        return (new Date(g.resolved_at) - new Date(g.created_at)) / 86400000; });
+      var avg = times.length ? (times.reduce(function (a, b) { return a + b; }, 0) / times.length).toFixed(1) + " days" : "No data yet";
+      var withDue = resolved.filter(function (g) { return g.resolved_at && g.due_date; });
+      var onTime = withDue.filter(function (g) { return g.resolved_at.slice(0, 10) <= g.due_date; }).length;
+      var sla = withDue.length ? Math.round(onTime * 100 / withDue.length) : null;
+
+      var k = [
+        ["Total received", list.length, "blue"],
+        ["Pending", pending.length, pending.length ? "amber" : "green"],
+        ["Disposed", resolved.length, "green"],
+        ["Overdue", overdue.length, overdue.length ? "red" : "green"],
+        ["Escalated", escalated.length, escalated.length ? "red" : "green"],
+        ["Reopened", reopened.length, reopened.length ? "amber" : "green"],
+        ["Average disposal time", avg, "blue"],
+        ["SLA compliance", sla === null ? "No data yet" : sla + "%", sla === null ? "blue" : sla >= 80 ? "green" : sla >= 50 ? "amber" : "red"]
+      ];
+      document.getElementById("kpis").innerHTML = k.map(function (x) {
+        return "<div class='kpi " + x[2] + "'><div class='n'>" + esc(x[1]) + "</div><div class='l'>" + x[0] + "</div></div>";
+      }).join("");
+
+      var f = document.getElementById("from").value, t = document.getElementById("to").value;
+      document.getElementById("periodnote").textContent = (f || t) ?
+        "Showing grievances received " + (f ? "from " + f : "") + (t ? " to " + t : "") + "." : "Showing all grievances.";
+
+      drawChart("cStatus", "doughnut", countBy(list, function (g) { return g.status; }), "Grievances");
+      var months = countBy(list.slice().reverse(), function (g) { return g.submission_date.slice(0, 7); });
+      var sorted = {}; Object.keys(months).sort().forEach(function (m) { sorted[m] = months[m]; });
+      drawChart("cMonth", "bar", sorted, "Received");
+      drawChart("cCat", "bar", countBy(list, function (g) { return g.category; }), "Grievances");
+      drawChart("cArea", "bar", countBy(list, function (g) { return g.location; }), "Grievances");
+      drawChart("cDept", "bar", countBy(list, function (g) { return g.department; }), "Grievances");
+      drawChart("cOff", "bar", countBy(pending, function (g) { return g.assigned_officer || "Not assigned"; }), "Pending");
+
+      var rank = { High: 0, Medium: 1, Low: 2 };
+      pending.sort(function (a, b) {
+        return (rank[a.urgency] - rank[b.urgency]) || (a.created_at < b.created_at ? -1 : 1);
+      });
+      document.getElementById("rows").innerHTML = pending.length ? pending.slice(0, 50).map(function (g) {
+        var days = today - dayNum(g.submission_date);
+        var left = g.due_date ? dayNum(g.due_date) - today : null;
+        var col = left === null ? "p-grey" : left < 0 ? "p-red" : left <= 5 ? "p-amber" : "p-green";
+        var dueText = g.due_date ? g.due_date + (left < 0 ? " (overdue)" : "") : "-";
+        return "<tr><td>" + esc(g.grievance_no) + "</td><td>" + esc(g.location) + "</td><td>" + esc(g.category) +
+          "</td><td>" + esc(g.urgency) + "</td><td>" + esc(g.status) + "</td><td><span class='pill " + col + "'>" +
+          esc(dueText) + "</span></td><td>" + days + "</td><td>" + esc(g.escalation_level) + "</td></tr>";
+      }).join("") : "<tr><td colspan='8'>No pending grievances.</td></tr>";
+    }
+
+    // Search by Grievance ID (searches all grievances, not only the chosen period)
+    function renderIdSearch() {
+      var q = document.getElementById("gid").value.trim().toLowerCase(), box = document.getElementById("gidresult");
+      if (!q) { box.innerHTML = ""; return; }
+      var hits = all.filter(function (g) { return (g.grievance_no || "").toLowerCase().indexOf(q) >= 0; });
+      if (!hits.length) { box.innerHTML = "<div class='msg info'>No grievance found with this ID.</div>"; return; }
+      box.innerHTML = hits.slice(0, 5).map(function (g) {
+        var l = g.due_date ? dayNum(g.due_date) - today : null;
+        var col = g.status === "Resolved" ? "p-green" : l === null ? "p-grey" : l < 0 ? "p-red" : l <= 5 ? "p-amber" : "p-green";
+        var dueTxt = g.status === "Resolved" ? "Disposed" : l === null ? "No due date" : l < 0 ? "Overdue by " + (-l) + " days" : l + " days left";
+        return "<div style='border-left:6px solid #c2410c;padding:8px 12px;margin-bottom:8px;background:#f9fafb;border-radius:8px'>" +
+          "<b>" + esc(g.grievance_no) + "</b> - " + esc(g.subject) + "<br>" +
+          "<span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-blue'>" + esc(g.status) + "</span>" +
+          "<span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" + (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
+          "<div class='note'>" + esc(g.category) + " | " + esc(g.location) + " | " + esc(g.department) + "<br>Received " + esc(g.submission_date) +
+          " | Due " + esc(g.due_date || "-") + " | Officer: " + esc(g.assigned_officer || "Not assigned") + "</div>" +
+          "<a href='officer.html?id=" + encodeURIComponent(g.grievance_no) + "'>Open in Officer page to update</a></div>";
+      }).join("") + (hits.length > 5 ? "<div class='note'>Showing 5 of " + hits.length + ". Type more of the ID to narrow down.</div>" : "");
+    }
+    document.getElementById("gid").addEventListener("input", renderIdSearch);
+    document.getElementById("apply").addEventListener("click", render);
+    document.getElementById("heatmode").addEventListener("change", render);
+    document.getElementById("reset").addEventListener("click", function () {
+      document.getElementById("from").value = ""; document.getElementById("to").value = ""; render();
+    });
+
+    // ---------- Excel download ----------
+    function addSheet(wb, name, header, rows) {
+      wb.push({ name: name, header: header, rows: rows });
+    }
+    function ageDays(g) { return today - dayNum(g.submission_date); }
+    function daysToClose(g) { return (new Date(g.resolved_at) - new Date(g.created_at)) / 86400000; }
+    function lateResolved(g) { return g.status === "Resolved" && g.resolved_at && g.due_date && g.resolved_at.slice(0, 10) > g.due_date; }
+    function groupRows(list, keyFn) {
+      var m = {};
+      list.forEach(function (g) {
+        var k = keyFn(g) || "Not set";
+        m[k] = m[k] || { total: 0, pending: 0, disposed: 0, overdue: 0 };
+        m[k].total++;
+        if (g.status === "Resolved") m[k].disposed++; else m[k].pending++;
+        if (isOverdue(g)) m[k].overdue++;
+      });
+      return Object.keys(m).sort().map(function (k) { return [k, m[k].total, m[k].pending, m[k].disposed, m[k].overdue]; });
+    }
+    function grievanceRow(g) {
+      return [g.grievance_no, g.submission_date, g.complainant_name, g.stakeholder_category, g.neis_no || "", g.location,
+        g.department, g.category, g.subject, g.urgency, g.status, g.assigned_officer || "", g.due_date || "",
+        g.status === "Resolved" ? "" : ageDays(g), g.escalation_level, g.reopened ? "Yes" : "No",
+        g.resolved_at ? g.resolved_at.slice(0, 10) : ""];
+    }
+    var GH = ["Grievance ID", "Date received", "Complainant", "Stakeholder type", "NEIS No.", "Area", "Department", "Category",
+      "Subject", "Urgency", "Status", "Responsible officer", "Due date", "Days pending", "Escalation level", "Reopened", "Date resolved"];
+
+    // Builds every report once; the Excel and PDF downloads both use it.
+    function buildReports() {
+      try {
+        var list = filtered();
+        if (!list.length) { showErr("There are no grievances in this period, so there is nothing to download."); return null; }
+        var pend = list.filter(function (g) { return g.status !== "Resolved"; });
+        var resolved = list.filter(function (g) { return g.status === "Resolved"; });
+        var GR = ["Name", "Total", "Pending", "Disposed", "Overdue"];
+        var wb = [];
+        var f = document.getElementById("from").value, t = document.getElementById("to").value;
+
+        var times = resolved.filter(function (g) { return g.resolved_at; }).map(daysToClose);
+        var withDue = resolved.filter(function (g) { return g.resolved_at && g.due_date; });
+        var onTime = withDue.filter(function (g) { return !lateResolved(g); }).length;
+        addSheet(wb, "Summary", ["Item", "Value"], [
+          ["Report date", todayStr], ["Period", (f || t) ? (f || "start") + " to " + (t || "today") : "All grievances"],
+          ["Total received", list.length], ["Pending", pend.length], ["Disposed", resolved.length],
+          ["Overdue", list.filter(isOverdue).length],
+          ["Escalated (level 2 or higher)", list.filter(function (g) { return g.escalation_level > 1; }).length],
+          ["Reopened", list.filter(function (g) { return g.reopened; }).length],
+          ["Average disposal time (days)", times.length ? +(times.reduce(function (a, b) { return a + b; }, 0) / times.length).toFixed(1) : "No data"],
+          ["SLA compliance (%)", withDue.length ? Math.round(onTime * 100 / withDue.length) : "No data"]]);
+
+        addSheet(wb, "All grievances", GH, list.map(grievanceRow));
+
+        var days = {};
+        list.forEach(function (g) { var d = g.submission_date; days[d] = days[d] || [0, 0]; days[d][0]++; });
+        resolved.forEach(function (g) { if (g.resolved_at) { var d = g.resolved_at.slice(0, 10); days[d] = days[d] || [0, 0]; days[d][1]++; } });
+        addSheet(wb, "Daily", ["Date", "Received", "Disposed"], Object.keys(days).sort().map(function (d) { return [d, days[d][0], days[d][1]]; }));
+
+        addSheet(wb, "Weekly pending", GH, pend.slice().sort(function (a, b) { return ageDays(b) - ageDays(a); }).map(grievanceRow));
+
+        var mon = groupRows(list, function (g) { return g.submission_date.slice(0, 7); });
+        addSheet(wb, "Monthly", ["Month"].concat(GR.slice(1)), mon);
+        addSheet(wb, "Area-wise", ["Area"].concat(GR.slice(1)), groupRows(list, function (g) { return g.location; }));
+        addSheet(wb, "Department-wise", ["Department"].concat(GR.slice(1)), groupRows(list, function (g) { return g.department; }));
+        addSheet(wb, "Category-wise", ["Category"].concat(GR.slice(1)), groupRows(list, function (g) { return g.category; }));
+
+        var buckets = [["0-7 days", 0, 7], ["8-15 days", 8, 15], ["16-30 days", 16, 30], ["31-60 days", 31, 60], ["Over 60 days", 61, 99999]];
+        addSheet(wb, "Ageing", ["Age of pending grievance", "Number pending"], buckets.map(function (b) {
+          return [b[0], pend.filter(function (g) { var a = ageDays(g); return a >= b[1] && a <= b[2]; }).length];
+        }));
+
+        addSheet(wb, "SLA violations", GH.concat(["Reason"]), list.filter(function (g) { return isOverdue(g) || lateResolved(g); })
+          .map(function (g) { return grievanceRow(g).concat([isOverdue(g) ? "Still pending after due date" : "Resolved after due date"]); }));
+
+        var off = {};
+        pend.forEach(function (g) {
+          var k = g.assigned_officer || "Not assigned";
+          off[k] = off[k] || [0, 0]; off[k][0]++; if (isOverdue(g)) off[k][1]++;
+        });
+        addSheet(wb, "Officer-wise pendency", ["Officer", "Pending", "Overdue"], Object.keys(off).sort().map(function (k) { return [k, off[k][0], off[k][1]]; }));
+
+        addSheet(wb, "Escalations", GH, list.filter(function (g) { return g.escalation_level > 1; })
+          .sort(function (a, b) { return b.escalation_level - a.escalation_level; }).map(grievanceRow));
+
+        var perf = {};
+        resolved.forEach(function (g) {
+          var k = g.category; perf[k] = perf[k] || { n: 0, sum: 0, timed: 0, ok: 0, sla: 0 };
+          perf[k].n++;
+          if (g.resolved_at) { perf[k].sum += daysToClose(g); perf[k].timed++; }
+          if (g.resolved_at && g.due_date) { perf[k].sla++; if (!lateResolved(g)) perf[k].ok++; }
+        });
+        addSheet(wb, "Disposal performance", ["Category", "Disposed", "Average days to dispose", "Disposed on time", "On-time %"],
+          Object.keys(perf).sort().map(function (k) {
+            var p = perf[k];
+            return [k, p.n, p.timed ? +(p.sum / p.timed).toFixed(1) : "No data", p.ok, p.sla ? Math.round(p.ok * 100 / p.sla) : "No data"];
+          }));
+
+        addSheet(wb, "Recurring issues", ["Area", "Category", "Count", "Pending", "Overdue", "Reopened", "Repeat complainants", "Look into"],
+          recurring(list).map(function (r) { return [r.area, r.cat, r.n, r.pend, r.over, r.reop, r.repeat, r.hint]; }));
+
+        addSheet(wb, "Reopened", GH, list.filter(function (g) { return g.reopened; }).map(grievanceRow));
+
+        return wb;
+      } catch (e) { showErr(e.message || JSON.stringify(e)); return null; }
+    }
+
+    // Documents sheet: reads the file list of each grievance from Supabase Storage (folder = Grievance ID)
+    var MAX_DOC_LOOKUPS = 300;
+    async function addDocumentsReport(reports, btn, label) {
+      var head = ["Grievance ID", "File name", "Size (KB)", "Uploaded on"], rows = [];
+      try {
+        var dbc = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+        var list = filtered().slice(0, MAX_DOC_LOOKUPS), done = 0;
+        for (var i = 0; i < list.length; i += 10) {
+          if (btn) btn.textContent = "Reading documents " + Math.min(i + 10, list.length) + "/" + list.length + "...";
+          var batch = list.slice(i, i + 10);
+          var res = await Promise.all(batch.map(function (g) {
+            return dbc.storage.from("grievance-docs").list(g.grievance_no, { limit: 100 }).then(function (r) { return { g: g, r: r }; });
+          }));
+          res.forEach(function (x) {
+            if (x.r.error) throw x.r.error;
+            (x.r.data || []).filter(function (f) { return f.id; }).forEach(function (f) {
+              rows.push([x.g.grievance_no, f.name.replace(/^\d+-\d+-/, ""),
+                f.metadata && f.metadata.size ? Math.round(f.metadata.size / 1024) : "", f.created_at ? f.created_at.slice(0, 10) : ""]);
+            });
+          });
+        }
+        if (filtered().length > MAX_DOC_LOOKUPS) rows.push(["Note", "Only the first " + MAX_DOC_LOOKUPS + " grievances were checked for documents.", "", ""]);
+      } catch (e) {
+        rows = [["Could not read documents", "Has 03-documents.sql been run? Error: " + (e.message || JSON.stringify(e)), "", ""]];
+      }
+      reports.push({ name: "Documents", header: head, rows: rows });
+      var withDocs = {}; rows.forEach(function (r) { if (r[2] !== "") withDocs[r[0]] = 1; });
+      var sum = reports[0];
+      if (sum && sum.name === "Summary") sum.rows.push(["Grievances with documents", Object.keys(withDocs).length], ["Documents attached", rows.filter(function (r) { return r[2] !== ""; }).length]);
+    }
+
+    async function downloadExcel() {
+      try {
+        if (typeof XLSX === "undefined") throw new Error("The Excel library did not load. Check the internet connection and try again.");
+        var reports = buildReports();
+        if (!reports) return;
+        var xb = document.getElementById("xl"), xt = xb.textContent; xb.disabled = true;
+        await addDocumentsReport(reports, xb);
+        xb.disabled = false; xb.textContent = xt;
+        var book = XLSX.utils.book_new();
+        reports.forEach(function (r) {
+          var ws = XLSX.utils.aoa_to_sheet([r.header].concat(r.rows));
+          ws["!cols"] = r.header.map(function (h, i) {
+            var w = h.length;
+            r.rows.forEach(function (row) { w = Math.max(w, String(row[i] == null ? "" : row[i]).length); });
+            return { wch: Math.min(w + 2, 50) };
+          });
+          XLSX.utils.book_append_sheet(book, ws, r.name);
+        });
+        XLSX.writeFile(book, "MCL-grievance-report-" + todayStr + ".xlsx");
+      } catch (e) { showErr(e.message || JSON.stringify(e)); }
+    }
+
+    async function downloadPdf() {
+      try {
+        if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("The PDF library did not load. Check the internet connection and try again.");
+        var reports = buildReports();
+        if (!reports) return;
+        var pb = document.getElementById("pdf"), pt = pb.textContent; pb.disabled = true;
+        await addDocumentsReport(reports, pb);
+        pb.disabled = false; pb.textContent = pt;
+        var doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        if (typeof doc.autoTable !== "function") throw new Error("The PDF table library did not load. Check the internet connection and try again.");
+        var f = document.getElementById("from").value, t = document.getElementById("to").value;
+        doc.setFontSize(16);
+        doc.text("MCL Grievance Management - MIS Report", 14, 15);
+        doc.setFontSize(10);
+        doc.text("Report date: " + todayStr + "   |   Period: " + ((f || t) ? (f || "start") + " to " + (t || "today") : "All grievances") +
+          "   |   Practice data only", 14, 21);
+        var y = 28;
+        reports.forEach(function (r) {
+          if (y > 165) { doc.addPage(); y = 15; }
+          doc.setFontSize(12);
+          doc.text(r.name, 14, y);
+          doc.autoTable({
+            startY: y + 2, head: [r.header],
+            body: r.rows.length ? r.rows : [["No records"].concat(new Array(r.header.length - 1).fill(""))],
+            styles: { fontSize: r.header.length > 8 ? 6.5 : 9, cellPadding: 1.5 },
+            headStyles: { fillColor: [194, 65, 12] }, margin: { left: 14, right: 14 }
+          });
+          y = doc.lastAutoTable.finalY + 10;
+        });
+        var pages = doc.getNumberOfPages();
+        for (var i = 1; i <= pages; i++) {
+          doc.setPage(i); doc.setFontSize(8);
+          doc.text("Page " + i + " of " + pages, 283, 205, { align: "right" });
+        }
+        doc.save("MCL-grievance-report-" + todayStr + ".pdf");
+      } catch (e) { showErr(e.message || JSON.stringify(e)); }
+    }
+    document.getElementById("xl").addEventListener("click", downloadExcel);
+    document.getElementById("pdf").addEventListener("click", downloadPdf);
+    load();
+  </script>
+</body>
+</html>
