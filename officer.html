@@ -55,6 +55,8 @@
       <input id="q" placeholder="e.g. MCL-2026-00001">
       <label for="cname">Complainant name</label>
       <input id="cname" placeholder="Type the name (part of it also works)">
+      <label for="atext">Area (type a name)</label>
+      <input id="atext" placeholder="Type the Area (part of it also works)">
       <label for="neis">NEIS No.</label>
       <input id="neis" placeholder="Type the NEIS No. (part of it also works)" inputmode="text">
       <div class="grid">
@@ -148,6 +150,8 @@
     function matches(g) {
       var q = document.getElementById("q").value.trim().toLowerCase();
       if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
+      var at = document.getElementById("atext").value.trim().toLowerCase();
+      if (at && (g.location || "").toLowerCase().indexOf(at) < 0) return false;
       var cn = document.getElementById("cname").value.trim().toLowerCase();
       if (cn && (g.complainant_name || "").toLowerCase().indexOf(cn) < 0) return false;
       var n = document.getElementById("neis").value.trim().toLowerCase();
@@ -362,7 +366,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // A link like officer.html?id=MCL-2026-00001 (from the dashboard) fills the search box
