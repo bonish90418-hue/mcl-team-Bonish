@@ -59,6 +59,8 @@
         <div><button id="apply">Apply</button></div>
         <div><button id="reset" style="background:#374151">Show all</button></div>
       </div>
+      <button id="xl" style="margin-top:12px;background:#047857">Download Excel report</button>
+      <p class="note">The Excel file follows the period chosen above. It has one sheet for each report.</p>
       <p class="note" id="periodnote"></p>
     </div>
 
@@ -84,6 +86,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
   <script>
     var all = [], charts = {};
@@ -207,6 +210,115 @@
     document.getElementById("reset").addEventListener("click", function () {
       document.getElementById("from").value = ""; document.getElementById("to").value = ""; render();
     });
+
+    // ---------- Excel download ----------
+    function addSheet(wb, name, header, rows) {
+      var ws = XLSX.utils.aoa_to_sheet([header].concat(rows));
+      ws["!cols"] = header.map(function (h, i) {
+        var w = h.length;
+        rows.forEach(function (r) { w = Math.max(w, String(r[i] == null ? "" : r[i]).length); });
+        return { wch: Math.min(w + 2, 50) };
+      });
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    }
+    function ageDays(g) { return today - dayNum(g.submission_date); }
+    function daysToClose(g) { return (new Date(g.resolved_at) - new Date(g.created_at)) / 86400000; }
+    function lateResolved(g) { return g.status === "Resolved" && g.resolved_at && g.due_date && g.resolved_at.slice(0, 10) > g.due_date; }
+    function groupRows(list, keyFn) {
+      var m = {};
+      list.forEach(function (g) {
+        var k = keyFn(g) || "Not set";
+        m[k] = m[k] || { total: 0, pending: 0, disposed: 0, overdue: 0 };
+        m[k].total++;
+        if (g.status === "Resolved") m[k].disposed++; else m[k].pending++;
+        if (isOverdue(g)) m[k].overdue++;
+      });
+      return Object.keys(m).sort().map(function (k) { return [k, m[k].total, m[k].pending, m[k].disposed, m[k].overdue]; });
+    }
+    function grievanceRow(g) {
+      return [g.grievance_no, g.submission_date, g.complainant_name, g.stakeholder_category, g.neis_no || "", g.location,
+        g.department, g.category, g.subject, g.urgency, g.status, g.assigned_officer || "", g.due_date || "",
+        g.status === "Resolved" ? "" : ageDays(g), g.escalation_level, g.reopened ? "Yes" : "No",
+        g.resolved_at ? g.resolved_at.slice(0, 10) : ""];
+    }
+    var GH = ["Grievance ID", "Date received", "Complainant", "Stakeholder type", "NEIS No.", "Area", "Department", "Category",
+      "Subject", "Urgency", "Status", "Responsible officer", "Due date", "Days pending", "Escalation level", "Reopened", "Date resolved"];
+
+    function downloadExcel() {
+      try {
+        if (typeof XLSX === "undefined") throw new Error("The Excel library did not load. Check the internet connection and try again.");
+        var list = filtered();
+        if (!list.length) { showErr("There are no grievances in this period, so there is nothing to download."); return; }
+        var pend = list.filter(function (g) { return g.status !== "Resolved"; });
+        var resolved = list.filter(function (g) { return g.status === "Resolved"; });
+        var GR = ["Name", "Total", "Pending", "Disposed", "Overdue"];
+        var wb = XLSX.utils.book_new();
+        var f = document.getElementById("from").value, t = document.getElementById("to").value;
+
+        var times = resolved.filter(function (g) { return g.resolved_at; }).map(daysToClose);
+        var withDue = resolved.filter(function (g) { return g.resolved_at && g.due_date; });
+        var onTime = withDue.filter(function (g) { return !lateResolved(g); }).length;
+        addSheet(wb, "Summary", ["Item", "Value"], [
+          ["Report date", todayStr], ["Period", (f || t) ? (f || "start") + " to " + (t || "today") : "All grievances"],
+          ["Total received", list.length], ["Pending", pend.length], ["Disposed", resolved.length],
+          ["Overdue", list.filter(isOverdue).length],
+          ["Escalated (level 2 or higher)", list.filter(function (g) { return g.escalation_level > 1; }).length],
+          ["Reopened", list.filter(function (g) { return g.reopened; }).length],
+          ["Average disposal time (days)", times.length ? +(times.reduce(function (a, b) { return a + b; }, 0) / times.length).toFixed(1) : "No data"],
+          ["SLA compliance (%)", withDue.length ? Math.round(onTime * 100 / withDue.length) : "No data"]]);
+
+        addSheet(wb, "All grievances", GH, list.map(grievanceRow));
+
+        var days = {};
+        list.forEach(function (g) { var d = g.submission_date; days[d] = days[d] || [0, 0]; days[d][0]++; });
+        resolved.forEach(function (g) { if (g.resolved_at) { var d = g.resolved_at.slice(0, 10); days[d] = days[d] || [0, 0]; days[d][1]++; } });
+        addSheet(wb, "Daily", ["Date", "Received", "Disposed"], Object.keys(days).sort().map(function (d) { return [d, days[d][0], days[d][1]]; }));
+
+        addSheet(wb, "Weekly pending", GH, pend.slice().sort(function (a, b) { return ageDays(b) - ageDays(a); }).map(grievanceRow));
+
+        var mon = groupRows(list, function (g) { return g.submission_date.slice(0, 7); });
+        addSheet(wb, "Monthly", ["Month"].concat(GR.slice(1)), mon);
+        addSheet(wb, "Area-wise", ["Area"].concat(GR.slice(1)), groupRows(list, function (g) { return g.location; }));
+        addSheet(wb, "Department-wise", ["Department"].concat(GR.slice(1)), groupRows(list, function (g) { return g.department; }));
+        addSheet(wb, "Category-wise", ["Category"].concat(GR.slice(1)), groupRows(list, function (g) { return g.category; }));
+
+        var buckets = [["0-7 days", 0, 7], ["8-15 days", 8, 15], ["16-30 days", 16, 30], ["31-60 days", 31, 60], ["Over 60 days", 61, 99999]];
+        addSheet(wb, "Ageing", ["Age of pending grievance", "Number pending"], buckets.map(function (b) {
+          return [b[0], pend.filter(function (g) { var a = ageDays(g); return a >= b[1] && a <= b[2]; }).length];
+        }));
+
+        addSheet(wb, "SLA violations", GH.concat(["Reason"]), list.filter(function (g) { return isOverdue(g) || lateResolved(g); })
+          .map(function (g) { return grievanceRow(g).concat([isOverdue(g) ? "Still pending after due date" : "Resolved after due date"]); }));
+
+        var off = {};
+        pend.forEach(function (g) {
+          var k = g.assigned_officer || "Not assigned";
+          off[k] = off[k] || [0, 0]; off[k][0]++; if (isOverdue(g)) off[k][1]++;
+        });
+        addSheet(wb, "Officer-wise pendency", ["Officer", "Pending", "Overdue"], Object.keys(off).sort().map(function (k) { return [k, off[k][0], off[k][1]]; }));
+
+        addSheet(wb, "Escalations", GH, list.filter(function (g) { return g.escalation_level > 1; })
+          .sort(function (a, b) { return b.escalation_level - a.escalation_level; }).map(grievanceRow));
+
+        var perf = {};
+        resolved.forEach(function (g) {
+          var k = g.category; perf[k] = perf[k] || { n: 0, sum: 0, timed: 0, ok: 0, sla: 0 };
+          perf[k].n++;
+          if (g.resolved_at) { perf[k].sum += daysToClose(g); perf[k].timed++; }
+          if (g.resolved_at && g.due_date) { perf[k].sla++; if (!lateResolved(g)) perf[k].ok++; }
+        });
+        addSheet(wb, "Disposal performance", ["Category", "Disposed", "Average days to dispose", "Disposed on time", "On-time %"],
+          Object.keys(perf).sort().map(function (k) {
+            var p = perf[k];
+            return [k, p.n, p.timed ? +(p.sum / p.timed).toFixed(1) : "No data", p.ok, p.sla ? Math.round(p.ok * 100 / p.sla) : "No data"];
+          }));
+
+        addSheet(wb, "Reopened", GH, list.filter(function (g) { return g.reopened; }).map(grievanceRow));
+
+        XLSX.writeFile(wb, "MCL-grievance-report-" + todayStr + ".xlsx");
+      } catch (e) { showErr(e.message || JSON.stringify(e)); }
+    }
+    document.getElementById("xl").addEventListener("click", downloadExcel);
     load();
   </script>
 </body>
