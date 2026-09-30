@@ -32,6 +32,9 @@
    or ask for a secret key, a service_role key or the database password.
 5. For charts, load Chart.js from the jsDelivr CDN.
 6. No login or sign-up. Anyone with the link can use the tool.
+   TEAM DECISION (exception): the Officer page has ONE simple passcode lock. It only
+   hides the page. It is NOT real security (the data can still be reached by someone
+   technical). Only a scrambled hash of the passcode is stored, in config.js.
 7. You may not be able to reach our database. Do NOT try to test the database
    connection. Write the code; we test it on the live website.
 8. If anything fails, show a friendly message on the page that also includes
@@ -114,3 +117,4 @@
 - Resolved date search (Claude): officer.html has "Resolved from / up to" date boxes (above the Reopened drop-down) that filter on the date a grievance was marked Resolved (uses the date on the officer's own device). Only grievances currently or previously resolved with a date are found; a reopened grievance has its resolved date cleared until it is resolved again. "Clear all filters" clears them. No SQL change.
 - Disposal reply search (Claude): officer.html has a "Disposal reply" box (words from the final reply; capitals do not matter) above the officer box. There is no separate reply column, so the tool searches only the remark entries that were saved together with the change to Resolved on the update panel. Grievances marked Resolved directly in Supabase, or resolved before a remark was added, have no reply text and will not be found. "Clear all filters" clears it. No SQL change.
 - Settings filled in (Claude): config.js now has the Project URL and the publishable key (both safe to be public). Next: merge to main, Data Keeper runs 01 to 04 SQL files in order, then test end to end on the live site.
+- Officer page passcode lock (Claude): officer.html now shows a passcode box first; the update tools and data load only after the right passcode is typed (remembered until the browser tab is closed; a 'Lock this page' button at the bottom locks it again). One passcode, given to one person. Only a scrambled hash (PBKDF2, 200000 rounds) and salt are in config.js (OFFICER_LOCK); the passcode itself is not stored anywhere in the code. Wrong tries wait 1.5 seconds. Team decision: it is a soft lock, not real security - the database is still readable and updatable by anyone with the link and our public key, the Dashboard still shows summary data, and the menu link to the Officer page stays visible. Real protection needs Supabase Auth and new SQL. To change the passcode, ask Claude for a new salt and hash. No SQL change.
