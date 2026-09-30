@@ -51,6 +51,7 @@
     <div class="tiles" id="tiles"></div>
 
     <div class="card">
+      <button type="button" id="clearall" style="margin:0 0 6px;background:#b91c1c">Clear all filters</button>
       <label for="q">Search (Grievance ID, name, NEIS No., subject)</label>
       <input id="q" placeholder="e.g. MCL-2026-00001">
       <label for="cname">Complainant name</label>
@@ -414,6 +415,17 @@
     ["q", "dfrom", "dto", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
+    // Clear all filters: empty every box and set every drop-down back to its first choice
+    document.getElementById("clearall").onclick = function () {
+      ["q", "dfrom", "dto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
+        document.getElementById(id).value = "";
+      });
+      ["view", "officer", "category", "area", "urgf", "lvl"].forEach(function (id) {
+        document.getElementById(id).selectedIndex = 0;
+      });
+      render();
+    };
+
     // Date shortcuts (local date on the user's device; week = Monday to today)
     function localDate(d) {
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
