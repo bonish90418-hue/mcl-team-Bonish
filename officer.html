@@ -47,6 +47,18 @@
     </nav>
   </header>
   <main>
+    <div id="lock" class="card">
+      <h2>Officer page - passcode needed</h2>
+      <p class="note">This page is only for the authorised officer. Type the passcode.</p>
+      <form id="lockform">
+        <label for="pass">Passcode</label>
+        <input id="pass" type="password" autocomplete="off" autocapitalize="characters" required>
+        <button id="unlock" type="submit">Unlock</button>
+      </form>
+      <div id="lockmsg" role="status"></div>
+    </div>
+
+    <div id="app" hidden>
     <div id="msg"></div>
     <div class="tiles" id="tiles"></div>
 
@@ -132,6 +144,8 @@
 
     <div id="editor" class="card" hidden></div>
     <div id="list"></div>
+    <button type="button" class="grey" id="relock">Lock this page</button>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -496,7 +510,38 @@
     // A link like officer.html?id=MCL-2026-00001 (from the dashboard) fills the search box
     var linkId = new URLSearchParams(location.search).get("id");
     if (linkId) document.getElementById("q").value = linkId;
-    load();
+    // ---- Passcode lock (a soft lock: it hides the page, it is not real security) ----
+    function isUnlocked() { try { return sessionStorage.getItem("officer_ok") === "1"; } catch (e) { return false; } }
+    function setUnlocked(v) { try { if (v) sessionStorage.setItem("officer_ok", "1"); else sessionStorage.removeItem("officer_ok"); } catch (e) {} }
+    async function scramble(pass, cfg) {
+      var enc = new TextEncoder();
+      var key = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
+      var bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode(cfg.salt), iterations: cfg.iterations, hash: "SHA-256" }, key, 256);
+      return Array.prototype.map.call(new Uint8Array(bits), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+    }
+    var started = false;
+    function showApp() {
+      document.getElementById("lock").hidden = true;
+      document.getElementById("app").hidden = false;
+      if (!started) { started = true; load(); }
+    }
+    document.getElementById("lockform").addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      var box = document.getElementById("lockmsg"), b = document.getElementById("unlock");
+      var cfg = window.OFFICER_LOCK;
+      if (!cfg || !cfg.hash) { box.className = "msg err"; box.textContent = "The officer passcode is not set up in config.js. Please tell the team."; return; }
+      b.disabled = true; b.textContent = "Checking...";
+      try {
+        var got = await scramble(document.getElementById("pass").value.trim().toUpperCase(), cfg);
+        if (got === cfg.hash) { setUnlocked(true); document.getElementById("pass").value = ""; box.textContent = ""; box.className = ""; showApp(); }
+        else { await new Promise(function (r) { setTimeout(r, 1500); }); box.className = "msg err"; box.textContent = "Wrong passcode. Please try again."; }
+      } catch (e) {
+        box.className = "msg err"; box.textContent = "Could not check the passcode. Please pass this error to the team: " + (e.message || e);
+      }
+      b.disabled = false; b.textContent = "Unlock";
+    });
+    document.getElementById("relock").onclick = function () { setUnlocked(false); location.reload(); };
+    if (isUnlocked()) showApp();
   </script>
 </body>
 </html>
