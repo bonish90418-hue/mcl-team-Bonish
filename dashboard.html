@@ -93,6 +93,17 @@
     </div>
 
     <div class="card">
+      <h2>Recurring grievances - where to look for root causes</h2>
+      <p class="note">Same Area and same category repeating again and again. The last column is only a pointer for the team, not a proven cause.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Area</th><th>Category</th><th>Count</th><th>Pending</th><th>Overdue</th><th>Reopened</th><th>Repeat complainants</th><th>Look into</th></tr></thead>
+        <tbody id="recur"></tbody>
+      </table></div>
+      <h2 style="margin-top:16px">Words that keep coming up in subjects</h2>
+      <div id="words"></div>
+    </div>
+
+    <div class="card">
       <h2>Pending grievances (most urgent and oldest first)</h2>
       <div class="tablewrap"><table>
         <thead><tr><th>ID</th><th>Area</th><th>Category</th><th>Urgency</th><th>Status</th><th>Due</th><th>Days pending</th><th>Level</th></tr></thead>
@@ -175,6 +186,57 @@
       });
     }
 
+    // ---------- Recurring grievances (root-cause pointers) ----------
+    var STOP = "the and for with from that this have has not are was were been about please regarding issue issues problem problems related matter matters our your their which when where what into over under after before since still again pending status request need needs not received".split(" ");
+    function recurring(list) {
+      var m = {};
+      list.forEach(function (g) {
+        var k = (g.location || "Not set") + "||" + g.category;
+        m[k] = m[k] || { area: g.location || "Not set", cat: g.category, n: 0, pend: 0, over: 0, reop: 0, who: {} };
+        var r = m[k]; r.n++;
+        if (g.status !== "Resolved") r.pend++;
+        if (isOverdue(g)) r.over++;
+        if (g.reopened) r.reop++;
+        var w = (g.contact || "").trim().toLowerCase();
+        if (w) r.who[w] = (r.who[w] || 0) + 1;
+      });
+      return Object.keys(m).map(function (k) {
+        var r = m[k];
+        r.repeat = Object.keys(r.who).filter(function (w) { return r.who[w] > 1; }).length;
+        var hints = [];
+        if (r.over >= Math.max(1, r.n / 3)) hints.push("delays in processing");
+        if (r.reop > 0) hints.push("replies not satisfying");
+        if (r.repeat > 0) hints.push("earlier complaints not fixed");
+        if (r.pend === r.n && r.n >= 3) hints.push("nobody closing these");
+        r.hint = hints.length ? hints.join("; ") : "same issue in one place - check the subjects";
+        return r;
+      }).filter(function (r) { return r.n >= 2; })
+        .sort(function (a, b) { return (b.n - a.n) || (b.over - a.over); });
+    }
+    function wordCounts(list) {
+      var c = {};
+      list.forEach(function (g) {
+        var seen = {};
+        (g.subject || "").toLowerCase().split(/[^a-z0-9&]+/).forEach(function (w) {
+          if (w.length >= 4 && STOP.indexOf(w) < 0 && !seen[w]) { seen[w] = 1; c[w] = (c[w] || 0) + 1; }
+        });
+      });
+      return Object.keys(c).filter(function (w) { return c[w] >= 2; })
+        .sort(function (a, b) { return c[b] - c[a]; }).slice(0, 15).map(function (w) { return [w, c[w]]; });
+    }
+    function renderRecurring(list) {
+      var rec = recurring(list).slice(0, 10);
+      document.getElementById("recur").innerHTML = rec.length ? rec.map(function (r) {
+        return "<tr><td>" + esc(r.area) + "</td><td>" + esc(r.cat) + "</td><td><b>" + r.n + "</b></td><td>" + r.pend +
+          "</td><td>" + (r.over ? "<span class='pill p-red'>" + r.over + "</span>" : 0) + "</td><td>" + r.reop +
+          "</td><td>" + r.repeat + "</td><td>" + esc(r.hint) + "</td></tr>";
+      }).join("") : "<tr><td colspan='8'>Nothing repeats yet. It shows when an Area has 2 or more grievances in the same category.</td></tr>";
+      var w = wordCounts(list);
+      document.getElementById("words").innerHTML = w.length ? w.map(function (x) {
+        return "<span class='pill p-blue' style='margin:0 6px 6px 0;font-size:14px;padding:4px 12px'>" + esc(x[0]) + " (" + x[1] + ")</span>";
+      }).join("") : "<span class='note'>No repeating words yet.</span>";
+    }
+
     function renderHeat(list) {
       var mode = document.getElementById("heatmode").value;
       var use = list.filter(function (g) {
@@ -208,6 +270,7 @@
     function render() {
       var list = filtered();
       renderHeat(list);
+      renderRecurring(list);
       var pending = list.filter(function (g) { return g.status !== "Resolved"; });
       var resolved = list.filter(function (g) { return g.status === "Resolved"; });
       var overdue = list.filter(isOverdue);
@@ -364,6 +427,9 @@
             var p = perf[k];
             return [k, p.n, p.timed ? +(p.sum / p.timed).toFixed(1) : "No data", p.ok, p.sla ? Math.round(p.ok * 100 / p.sla) : "No data"];
           }));
+
+        addSheet(wb, "Recurring issues", ["Area", "Category", "Count", "Pending", "Overdue", "Reopened", "Repeat complainants", "Look into"],
+          recurring(list).map(function (r) { return [r.area, r.cat, r.n, r.pend, r.over, r.reop, r.repeat, r.hint]; }));
 
         addSheet(wb, "Reopened", GH, list.filter(function (g) { return g.reopened; }).map(grievanceRow));
 
