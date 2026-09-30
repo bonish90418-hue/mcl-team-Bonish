@@ -100,6 +100,13 @@
     async function load() {
       if (!db) return;
       try {
+        // Automatic escalation: late grievances move up a level (see database/02-auto-escalation.sql)
+        var auto = await db.rpc("escalate_overdue_grievances");
+        if (auto.error) {
+          say("err", "Automatic escalation could not run (has 02-auto-escalation.sql been run in Supabase?). Error: " + esc(auto.error.message));
+        } else if (auto.data > 0) {
+          say("ok", esc(auto.data) + " late grievance(s) were escalated automatically just now.");
+        }
         var out = [], from = 0;
         while (true) {
           var r = await db.from("grievances").select("*").order("created_at", { ascending: false }).range(from, from + 999);
@@ -163,7 +170,8 @@
           "<div class='small'>" + esc(g.complainant_name) + " | " + esc(g.location) + " | " + esc(g.category) + "</div>" +
           "<p><span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-grey'>" + esc(g.urgency) + "</span>" +
           "<span class='pill p-blue'>" + esc(g.status) + "</span><span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" +
-          (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") + "</p>" +
+          (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
+          ((g.remarks || "").indexOf("SYSTEM: automatically escalated") >= 0 ? "<span class='pill p-red'>Auto-escalated</span>" : "") + "</p>" +
           "<div class='small'>Officer: " + esc(g.assigned_officer || "Not assigned") + (action ? " | <b>" + action + "</b>" : "") + "</div>" +
           "<button class='grey' data-id='" + esc(g.id) + "'>Open and update</button></div>";
       }).join("") : "<div class='card'>No grievances match.</div>";

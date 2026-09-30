@@ -127,6 +127,13 @@
     async function load() {
       try {
         var db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+        // Automatic escalation: late grievances move up a level (see database/02-auto-escalation.sql)
+        var esc1 = await db.rpc("escalate_overdue_grievances");
+        if (esc1.error) {
+          msg.innerHTML = "<div class='msg info'>Automatic escalation could not run (has 02-auto-escalation.sql been run in Supabase?). Error: " + esc(esc1.error.message) + "</div>";
+        } else if (esc1.data > 0) {
+          msg.innerHTML = "<div class='msg info'>" + esc(esc1.data) + " late grievance(s) were escalated automatically just now.</div>";
+        }
         var out = [], from = 0, step = 1000;
         while (true) {
           var res = await db.from("grievances").select("*").order("created_at", { ascending: false }).range(from, from + step - 1);
