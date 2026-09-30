@@ -65,6 +65,12 @@
         <button type="button" class="grey" id="d_week" style="margin-top:8px">This week</button>
         <button type="button" class="grey" id="d_clear" style="margin-top:8px">Clear dates</button>
       </div>
+      <label for="reop">Reopened</label>
+      <select id="reop">
+        <option value="">All grievances</option>
+        <option value="yes">Reopened only</option>
+        <option value="no">Never reopened</option>
+      </select>
       <label for="urgf">Urgency</label>
       <select id="urgf">
         <option value="">All urgency levels</option>
@@ -184,6 +190,9 @@
       var df = document.getElementById("dfrom").value, dt = document.getElementById("dto").value;
       if (df && g.submission_date < df) return false;
       if (dt && g.submission_date > dt) return false;
+      var rp = document.getElementById("reop").value;
+      if (rp === "yes" && !g.reopened) return false;
+      if (rp === "no" && g.reopened) return false;
       var uf = document.getElementById("urgf").value;
       if (uf && g.urgency !== uf) return false;
       var lv = document.getElementById("lvl").value;
@@ -412,7 +421,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "reop", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Clear all filters: empty every box and set every drop-down back to its first choice
@@ -420,7 +429,7 @@
       ["q", "dfrom", "dto", "otext", "atext", "ctext", "stext", "dtext", "cname", "neis"].forEach(function (id) {
         document.getElementById(id).value = "";
       });
-      ["view", "officer", "category", "area", "urgf", "lvl"].forEach(function (id) {
+      ["view", "officer", "category", "area", "reop", "urgf", "lvl"].forEach(function (id) {
         document.getElementById(id).selectedIndex = 0;
       });
       render();
