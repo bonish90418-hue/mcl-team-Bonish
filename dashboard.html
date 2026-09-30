@@ -60,7 +60,8 @@
         <div><button id="reset" style="background:#374151">Show all</button></div>
       </div>
       <button id="xl" style="margin-top:12px;background:#047857">Download Excel report</button>
-      <p class="note">The Excel file follows the period chosen above. It has one sheet for each report.</p>
+      <button id="pdf" style="margin-top:10px;background:#1d4ed8">Download PDF report</button>
+      <p class="note">Both files follow the period chosen above. They contain the same reports, one after another.</p>
       <p class="note" id="periodnote"></p>
     </div>
 
@@ -87,6 +88,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="config.js"></script>
   <script>
     var all = [], charts = {};
@@ -213,13 +216,7 @@
 
     // ---------- Excel download ----------
     function addSheet(wb, name, header, rows) {
-      var ws = XLSX.utils.aoa_to_sheet([header].concat(rows));
-      ws["!cols"] = header.map(function (h, i) {
-        var w = h.length;
-        rows.forEach(function (r) { w = Math.max(w, String(r[i] == null ? "" : r[i]).length); });
-        return { wch: Math.min(w + 2, 50) };
-      });
-      XLSX.utils.book_append_sheet(wb, ws, name);
+      wb.push({ name: name, header: header, rows: rows });
     }
     function ageDays(g) { return today - dayNum(g.submission_date); }
     function daysToClose(g) { return (new Date(g.resolved_at) - new Date(g.created_at)) / 86400000; }
@@ -244,15 +241,15 @@
     var GH = ["Grievance ID", "Date received", "Complainant", "Stakeholder type", "NEIS No.", "Area", "Department", "Category",
       "Subject", "Urgency", "Status", "Responsible officer", "Due date", "Days pending", "Escalation level", "Reopened", "Date resolved"];
 
-    function downloadExcel() {
+    // Builds every report once; the Excel and PDF downloads both use it.
+    function buildReports() {
       try {
-        if (typeof XLSX === "undefined") throw new Error("The Excel library did not load. Check the internet connection and try again.");
         var list = filtered();
-        if (!list.length) { showErr("There are no grievances in this period, so there is nothing to download."); return; }
+        if (!list.length) { showErr("There are no grievances in this period, so there is nothing to download."); return null; }
         var pend = list.filter(function (g) { return g.status !== "Resolved"; });
         var resolved = list.filter(function (g) { return g.status === "Resolved"; });
         var GR = ["Name", "Total", "Pending", "Disposed", "Overdue"];
-        var wb = XLSX.utils.book_new();
+        var wb = [];
         var f = document.getElementById("from").value, t = document.getElementById("to").value;
 
         var times = resolved.filter(function (g) { return g.resolved_at; }).map(daysToClose);
@@ -315,10 +312,65 @@
 
         addSheet(wb, "Reopened", GH, list.filter(function (g) { return g.reopened; }).map(grievanceRow));
 
-        XLSX.writeFile(wb, "MCL-grievance-report-" + todayStr + ".xlsx");
+        return wb;
+      } catch (e) { showErr(e.message || JSON.stringify(e)); return null; }
+    }
+
+    function downloadExcel() {
+      try {
+        if (typeof XLSX === "undefined") throw new Error("The Excel library did not load. Check the internet connection and try again.");
+        var reports = buildReports();
+        if (!reports) return;
+        var book = XLSX.utils.book_new();
+        reports.forEach(function (r) {
+          var ws = XLSX.utils.aoa_to_sheet([r.header].concat(r.rows));
+          ws["!cols"] = r.header.map(function (h, i) {
+            var w = h.length;
+            r.rows.forEach(function (row) { w = Math.max(w, String(row[i] == null ? "" : row[i]).length); });
+            return { wch: Math.min(w + 2, 50) };
+          });
+          XLSX.utils.book_append_sheet(book, ws, r.name);
+        });
+        XLSX.writeFile(book, "MCL-grievance-report-" + todayStr + ".xlsx");
+      } catch (e) { showErr(e.message || JSON.stringify(e)); }
+    }
+
+    function downloadPdf() {
+      try {
+        if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("The PDF library did not load. Check the internet connection and try again.");
+        var reports = buildReports();
+        if (!reports) return;
+        var doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        if (typeof doc.autoTable !== "function") throw new Error("The PDF table library did not load. Check the internet connection and try again.");
+        var f = document.getElementById("from").value, t = document.getElementById("to").value;
+        doc.setFontSize(16);
+        doc.text("MCL Grievance Management - MIS Report", 14, 15);
+        doc.setFontSize(10);
+        doc.text("Report date: " + todayStr + "   |   Period: " + ((f || t) ? (f || "start") + " to " + (t || "today") : "All grievances") +
+          "   |   Practice data only", 14, 21);
+        var y = 28;
+        reports.forEach(function (r) {
+          if (y > 165) { doc.addPage(); y = 15; }
+          doc.setFontSize(12);
+          doc.text(r.name, 14, y);
+          doc.autoTable({
+            startY: y + 2, head: [r.header],
+            body: r.rows.length ? r.rows : [["No records"].concat(new Array(r.header.length - 1).fill(""))],
+            styles: { fontSize: r.header.length > 8 ? 6.5 : 9, cellPadding: 1.5 },
+            headStyles: { fillColor: [194, 65, 12] }, margin: { left: 14, right: 14 }
+          });
+          y = doc.lastAutoTable.finalY + 10;
+        });
+        var pages = doc.getNumberOfPages();
+        for (var i = 1; i <= pages; i++) {
+          doc.setPage(i); doc.setFontSize(8);
+          doc.text("Page " + i + " of " + pages, 283, 205, { align: "right" });
+        }
+        doc.save("MCL-grievance-report-" + todayStr + ".pdf");
       } catch (e) { showErr(e.message || JSON.stringify(e)); }
     }
     document.getElementById("xl").addEventListener("click", downloadExcel);
+    document.getElementById("pdf").addEventListener("click", downloadPdf);
     load();
   </script>
 </body>
