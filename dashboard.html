@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCL Grievance Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
+    header { background: #111827; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
+            border-radius: 8px; background: #374151; margin-right: 6px; font-size: 16px; }
+    nav a.active { background: #c2410c; }
+    main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 16px; }
+    .card h2 { margin: 0 0 10px; font-size: 18px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .filters div { flex: 1 1 140px; }
+    label { display: block; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+    input, select, button { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #9ca3af; border-radius: 8px; background: #fff; }
+    button { background: #c2410c; color: #fff; border: 0; font-weight: bold; cursor: pointer; }
+    .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    @media (min-width: 700px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+    .kpi { background: #fff; border-radius: 12px; padding: 14px; border-left: 8px solid #6b7280; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .kpi .n { font-size: 28px; font-weight: bold; }
+    .kpi .l { font-size: 14px; color: #4b5563; }
+    .green { border-color: #047857; } .amber { border-color: #d97706; } .red { border-color: #b91c1c; } .blue { border-color: #1d4ed8; }
+    .charts { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 700px) { .charts { grid-template-columns: 1fr 1fr; } }
+    .chartbox { position: relative; height: 260px; }
+    .tablewrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; }
+    .p-green { background: #047857; } .p-amber { background: #d97706; } .p-red { background: #b91c1c; } .p-grey { background: #6b7280; }
+    .msg { padding: 14px; border-radius: 10px; margin-bottom: 16px; word-break: break-word; }
+    .err { background: #fee2e2; color: #991b1b; } .info { background: #dbeafe; color: #1e3a8a; }
+    .note { font-size: 14px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MCL Grievance Management</h1>
+    <nav>
+      <a href="index.html">Register</a>
+      <a href="dashboard.html" class="active">Dashboard</a>
+    </nav>
+  </header>
+  <main>
+    <div id="msg"></div>
+
+    <div class="card">
+      <h2>Period</h2>
+      <div class="filters">
+        <div><label for="from">From date</label><input type="date" id="from"></div>
+        <div><label for="to">To date</label><input type="date" id="to"></div>
+        <div><button id="apply">Apply</button></div>
+        <div><button id="reset" style="background:#374151">Show all</button></div>
+      </div>
+      <p class="note" id="periodnote"></p>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="charts">
+      <div class="card"><h2>Status</h2><div class="chartbox"><canvas id="cStatus"></canvas></div></div>
+      <div class="card"><h2>Month-wise trend</h2><div class="chartbox"><canvas id="cMonth"></canvas></div></div>
+      <div class="card"><h2>Category-wise</h2><div class="chartbox"><canvas id="cCat"></canvas></div></div>
+      <div class="card"><h2>Area-wise</h2><div class="chartbox"><canvas id="cArea"></canvas></div></div>
+      <div class="card"><h2>Department-wise</h2><div class="chartbox"><canvas id="cDept"></canvas></div></div>
+      <div class="card"><h2>Officer-wise pending</h2><div class="chartbox"><canvas id="cOff"></canvas></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Pending grievances (most urgent and oldest first)</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>ID</th><th>Area</th><th>Category</th><th>Urgency</th><th>Status</th><th>Due</th><th>Days pending</th><th>Level</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="config.js"></script>
+  <script>
+    var all = [], charts = {};
+    var COLORS = ["#c2410c", "#1d4ed8", "#047857", "#7c3aed", "#d97706", "#0e7490", "#be185d", "#4b5563"];
+    var msg = document.getElementById("msg");
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function showErr(text) {
+      msg.innerHTML = "<div class='msg err'>Sorry, the dashboard could not load. Please pass this error to the team: " + esc(text) + "</div>";
+    }
+    function dayNum(d) { return Math.floor(new Date(d + "T00:00:00").getTime() / 86400000); }
+    var todayStr = new Date().toISOString().slice(0, 10);
+    var today = dayNum(todayStr);
+
+    async function load() {
+      try {
+        var db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+        var out = [], from = 0, step = 1000;
+        while (true) {
+          var res = await db.from("grievances").select("*").order("created_at", { ascending: false }).range(from, from + step - 1);
+          if (res.error) throw res.error;
+          out = out.concat(res.data);
+          if (res.data.length < step) break;
+          from += step;
+        }
+        all = out;
+        render();
+      } catch (e) { showErr(e.message || JSON.stringify(e)); }
+    }
+
+    function filtered() {
+      var f = document.getElementById("from").value, t = document.getElementById("to").value;
+      return all.filter(function (g) {
+        var d = g.submission_date;
+        return (!f || d >= f) && (!t || d <= t);
+      });
+    }
+    function isOverdue(g) { return g.status !== "Resolved" && g.due_date && dayNum(g.due_date) < today; }
+    function countBy(list, fn) {
+      var m = {};
+      list.forEach(function (g) { var k = fn(g) || "Not set"; m[k] = (m[k] || 0) + 1; });
+      return m;
+    }
+    function drawChart(id, type, map, label) {
+      var labels = Object.keys(map), data = labels.map(function (k) { return map[k]; });
+      if (charts[id]) charts[id].destroy();
+      var pie = type === "doughnut";
+      charts[id] = new Chart(document.getElementById(id), {
+        type: type,
+        data: { labels: labels, datasets: [{ label: label, data: data,
+          backgroundColor: pie ? labels.map(function (l, i) { return COLORS[i % COLORS.length]; }) : "#c2410c",
+          borderColor: "#c2410c" }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: pie } },
+          scales: pie ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+    }
+
+    function render() {
+      var list = filtered();
+      var pending = list.filter(function (g) { return g.status !== "Resolved"; });
+      var resolved = list.filter(function (g) { return g.status === "Resolved"; });
+      var overdue = list.filter(isOverdue);
+      var escalated = list.filter(function (g) { return g.escalation_level > 1; });
+      var reopened = list.filter(function (g) { return g.reopened; });
+
+      var times = resolved.filter(function (g) { return g.resolved_at; }).map(function (g) {
+        return (new Date(g.resolved_at) - new Date(g.created_at)) / 86400000; });
+      var avg = times.length ? (times.reduce(function (a, b) { return a + b; }, 0) / times.length).toFixed(1) + " days" : "No data yet";
+      var withDue = resolved.filter(function (g) { return g.resolved_at && g.due_date; });
+      var onTime = withDue.filter(function (g) { return g.resolved_at.slice(0, 10) <= g.due_date; }).length;
+      var sla = withDue.length ? Math.round(onTime * 100 / withDue.length) : null;
+
+      var k = [
+        ["Total received", list.length, "blue"],
+        ["Pending", pending.length, pending.length ? "amber" : "green"],
+        ["Disposed", resolved.length, "green"],
+        ["Overdue", overdue.length, overdue.length ? "red" : "green"],
+        ["Escalated", escalated.length, escalated.length ? "red" : "green"],
+        ["Reopened", reopened.length, reopened.length ? "amber" : "green"],
+        ["Average disposal time", avg, "blue"],
+        ["SLA compliance", sla === null ? "No data yet" : sla + "%", sla === null ? "blue" : sla >= 80 ? "green" : sla >= 50 ? "amber" : "red"]
+      ];
+      document.getElementById("kpis").innerHTML = k.map(function (x) {
+        return "<div class='kpi " + x[2] + "'><div class='n'>" + esc(x[1]) + "</div><div class='l'>" + x[0] + "</div></div>";
+      }).join("");
+
+      var f = document.getElementById("from").value, t = document.getElementById("to").value;
+      document.getElementById("periodnote").textContent = (f || t) ?
+        "Showing grievances received " + (f ? "from " + f : "") + (t ? " to " + t : "") + "." : "Showing all grievances.";
+
+      drawChart("cStatus", "doughnut", countBy(list, function (g) { return g.status; }), "Grievances");
+      var months = countBy(list.slice().reverse(), function (g) { return g.submission_date.slice(0, 7); });
+      var sorted = {}; Object.keys(months).sort().forEach(function (m) { sorted[m] = months[m]; });
+      drawChart("cMonth", "bar", sorted, "Received");
+      drawChart("cCat", "bar", countBy(list, function (g) { return g.category; }), "Grievances");
+      drawChart("cArea", "bar", countBy(list, function (g) { return g.location; }), "Grievances");
+      drawChart("cDept", "bar", countBy(list, function (g) { return g.department; }), "Grievances");
+      drawChart("cOff", "bar", countBy(pending, function (g) { return g.assigned_officer || "Not assigned"; }), "Pending");
+
+      var rank = { High: 0, Medium: 1, Low: 2 };
+      pending.sort(function (a, b) {
+        return (rank[a.urgency] - rank[b.urgency]) || (a.created_at < b.created_at ? -1 : 1);
+      });
+      document.getElementById("rows").innerHTML = pending.length ? pending.slice(0, 50).map(function (g) {
+        var days = today - dayNum(g.submission_date);
+        var left = g.due_date ? dayNum(g.due_date) - today : null;
+        var col = left === null ? "p-grey" : left < 0 ? "p-red" : left <= 5 ? "p-amber" : "p-green";
+        var dueText = g.due_date ? g.due_date + (left < 0 ? " (overdue)" : "") : "-";
+        return "<tr><td>" + esc(g.grievance_no) + "</td><td>" + esc(g.location) + "</td><td>" + esc(g.category) +
+          "</td><td>" + esc(g.urgency) + "</td><td>" + esc(g.status) + "</td><td><span class='pill " + col + "'>" +
+          esc(dueText) + "</span></td><td>" + days + "</td><td>" + esc(g.escalation_level) + "</td></tr>";
+      }).join("") : "<tr><td colspan='8'>No pending grievances.</td></tr>";
+    }
+
+    document.getElementById("apply").addEventListener("click", render);
+    document.getElementById("reset").addEventListener("click", function () {
+      document.getElementById("from").value = ""; document.getElementById("to").value = ""; render();
+    });
+    load();
+  </script>
+</body>
+</html>
