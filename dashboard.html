@@ -56,6 +56,13 @@
     <div id="msg"></div>
 
     <div class="card">
+      <h2>Find a grievance by ID</h2>
+      <label for="gid">Grievance ID (part of it also works)</label>
+      <input id="gid" placeholder="MCL-2026-00001" autocapitalize="characters">
+      <div id="gidresult" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
       <h2>Period</h2>
       <div class="filters">
         <div><label for="from">From date</label><input type="date" id="from"></div>
@@ -155,6 +162,7 @@
         }
         all = out;
         render();
+        renderIdSearch();
       } catch (e) { showErr(e.message || JSON.stringify(e)); }
     }
 
@@ -326,6 +334,26 @@
       }).join("") : "<tr><td colspan='8'>No pending grievances.</td></tr>";
     }
 
+    // Search by Grievance ID (searches all grievances, not only the chosen period)
+    function renderIdSearch() {
+      var q = document.getElementById("gid").value.trim().toLowerCase(), box = document.getElementById("gidresult");
+      if (!q) { box.innerHTML = ""; return; }
+      var hits = all.filter(function (g) { return (g.grievance_no || "").toLowerCase().indexOf(q) >= 0; });
+      if (!hits.length) { box.innerHTML = "<div class='msg info'>No grievance found with this ID.</div>"; return; }
+      box.innerHTML = hits.slice(0, 5).map(function (g) {
+        var l = g.due_date ? dayNum(g.due_date) - today : null;
+        var col = g.status === "Resolved" ? "p-green" : l === null ? "p-grey" : l < 0 ? "p-red" : l <= 5 ? "p-amber" : "p-green";
+        var dueTxt = g.status === "Resolved" ? "Disposed" : l === null ? "No due date" : l < 0 ? "Overdue by " + (-l) + " days" : l + " days left";
+        return "<div style='border-left:6px solid #c2410c;padding:8px 12px;margin-bottom:8px;background:#f9fafb;border-radius:8px'>" +
+          "<b>" + esc(g.grievance_no) + "</b> - " + esc(g.subject) + "<br>" +
+          "<span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-blue'>" + esc(g.status) + "</span>" +
+          "<span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" + (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
+          "<div class='note'>" + esc(g.category) + " | " + esc(g.location) + " | " + esc(g.department) + "<br>Received " + esc(g.submission_date) +
+          " | Due " + esc(g.due_date || "-") + " | Officer: " + esc(g.assigned_officer || "Not assigned") + "</div>" +
+          "<a href='officer.html?id=" + encodeURIComponent(g.grievance_no) + "'>Open in Officer page to update</a></div>";
+      }).join("") + (hits.length > 5 ? "<div class='note'>Showing 5 of " + hits.length + ". Type more of the ID to narrow down.</div>" : "");
+    }
+    document.getElementById("gid").addEventListener("input", renderIdSearch);
     document.getElementById("apply").addEventListener("click", render);
     document.getElementById("heatmode").addEventListener("change", render);
     document.getElementById("reset").addEventListener("click", function () {

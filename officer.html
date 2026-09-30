@@ -365,6 +365,9 @@
     ["q", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
+    // A link like officer.html?id=MCL-2026-00001 (from the dashboard) fills the search box
+    var linkId = new URLSearchParams(location.search).get("id");
+    if (linkId) document.getElementById("q").value = linkId;
     load();
   </script>
 </body>
