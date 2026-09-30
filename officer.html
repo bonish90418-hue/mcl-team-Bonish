@@ -64,6 +64,11 @@
         <button type="button" class="grey" id="d_week" style="margin-top:8px">This week</button>
         <button type="button" class="grey" id="d_clear" style="margin-top:8px">Clear dates</button>
       </div>
+      <label for="urgf">Urgency</label>
+      <select id="urgf">
+        <option value="">All urgency levels</option>
+        <option>High</option><option>Medium</option><option>Low</option>
+      </select>
       <label for="lvl">Escalation level</label>
       <select id="lvl">
         <option value="">All levels</option>
@@ -178,6 +183,8 @@
       var df = document.getElementById("dfrom").value, dt = document.getElementById("dto").value;
       if (df && g.submission_date < df) return false;
       if (dt && g.submission_date > dt) return false;
+      var uf = document.getElementById("urgf").value;
+      if (uf && g.urgency !== uf) return false;
       var lv = document.getElementById("lvl").value;
       if (lv && String(g.escalation_level) !== lv) return false;
       var dp = document.getElementById("dtext").value.trim().toLowerCase();
@@ -404,7 +411,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "dfrom", "dto", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "urgf", "lvl", "dtext", "stext", "ctext", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // Date shortcuts (local date on the user's device; week = Monday to today)
