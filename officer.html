@@ -59,6 +59,11 @@
         <div><label for="dfrom">Received from (date)</label><input type="date" id="dfrom"></div>
         <div><label for="dto">Received up to (date)</label><input type="date" id="dto"></div>
       </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="grey" id="d_today" style="margin-top:8px">Today</button>
+        <button type="button" class="grey" id="d_week" style="margin-top:8px">This week</button>
+        <button type="button" class="grey" id="d_clear" style="margin-top:8px">Clear dates</button>
+      </div>
       <label for="otext">Responsible officer (type a name)</label>
       <input id="otext" placeholder="Type the officer's name (part of it also works)">
       <label for="atext">Area (type a name)</label>
@@ -380,6 +385,22 @@
     ["q", "dfrom", "dto", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
+    // Date shortcuts (local date on the user's device; week = Monday to today)
+    function localDate(d) {
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    function setDates(from, to) {
+      document.getElementById("dfrom").value = from;
+      document.getElementById("dto").value = to;
+      render();
+    }
+    document.getElementById("d_today").onclick = function () { var t = localDate(new Date()); setDates(t, t); };
+    document.getElementById("d_week").onclick = function () {
+      var n = new Date(), mon = new Date(n.getFullYear(), n.getMonth(), n.getDate() - ((n.getDay() + 6) % 7));
+      setDates(localDate(mon), localDate(n));
+    };
+    document.getElementById("d_clear").onclick = function () { setDates("", ""); };
+
     // A link like officer.html?id=MCL-2026-00001 (from the dashboard) fills the search box
     var linkId = new URLSearchParams(location.search).get("id");
     if (linkId) document.getElementById("q").value = linkId;
