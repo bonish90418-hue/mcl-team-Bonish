@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCL Officer Page</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; font-size: 17px; }
+    header { background: #111827; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0 0 8px; font-size: 18px; }
+    nav a { display: inline-block; color: #fff; text-decoration: none; padding: 10px 14px;
+            border-radius: 8px; background: #374151; margin: 0 6px 6px 0; font-size: 16px; }
+    nav a.active { background: #c2410c; }
+    main { max-width: 800px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 14px; }
+    label { display: block; font-weight: bold; font-size: 14px; margin: 10px 0 4px; }
+    input, select, textarea, button { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #9ca3af; border-radius: 8px; background: #fff; font-family: inherit; }
+    textarea { min-height: 90px; }
+    button { background: #c2410c; color: #fff; border: 0; font-weight: bold; cursor: pointer; margin-top: 12px; }
+    button.grey { background: #374151; }
+    button:disabled { background: #9ca3af; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 0 10px; }
+    @media (min-width: 600px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .tile { background: #fff; border-radius: 10px; padding: 10px; border-left: 6px solid #6b7280; text-align: left; font-size: 14px; }
+    .tile b { display: block; font-size: 24px; }
+    .red { border-color: #b91c1c; } .amber { border-color: #d97706; } .green { border-color: #047857; } .blue { border-color: #1d4ed8; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; margin-right: 4px; }
+    .p-green { background: #047857; } .p-amber { background: #d97706; } .p-red { background: #b91c1c; } .p-grey { background: #6b7280; } .p-blue { background: #1d4ed8; }
+    .item { border-left: 6px solid #6b7280; }
+    .item h3 { margin: 0 0 4px; font-size: 17px; }
+    .small { font-size: 14px; color: #4b5563; }
+    .msg { padding: 14px; border-radius: 10px; margin-bottom: 14px; word-break: break-word; }
+    .err { background: #fee2e2; color: #991b1b; } .ok { background: #d1fae5; color: #065f46; }
+    pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; background: #f9fafb; padding: 10px; border-radius: 8px; font-size: 14px; }
+    #editor { border: 2px solid #c2410c; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MCL Grievance Management</h1>
+    <nav>
+      <a href="index.html">Register</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="officer.html" class="active">Officer page</a>
+    </nav>
+  </header>
+  <main>
+    <div id="msg"></div>
+    <div class="tiles" id="tiles"></div>
+
+    <div class="card">
+      <label for="q">Search (Grievance ID, name, NEIS No., subject)</label>
+      <input id="q" placeholder="e.g. MCL-2026-00001">
+      <div class="grid">
+        <div><label for="view">Show</label>
+          <select id="view">
+            <option value="all">All grievances</option>
+            <option value="new">Newly received (no officer yet)</option>
+            <option value="pending">Pending</option>
+            <option value="due">Due within 5 days</option>
+            <option value="overdue">Overdue</option>
+            <option value="escalated">Escalated</option>
+            <option value="disposed">Disposed</option>
+          </select></div>
+        <div><label for="officer">Responsible officer</label><select id="officer"></select></div>
+        <div><label for="category">Category</label>
+          <select id="category"><option value="">All</option><option>Land and R&amp;R</option><option>Employment and HR</option><option>Finance</option><option>Project / Area</option><option>Other</option></select></div>
+        <div><label for="area">Area</label><select id="area"></select></div>
+      </div>
+    </div>
+
+    <div id="editor" class="card" hidden></div>
+    <div id="list"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    var db = null, all = [], openId = null;
+    var msg = document.getElementById("msg");
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function say(kind, text) { msg.innerHTML = "<div class='msg " + kind + "'>" + text + "</div>"; }
+    function errText(prefix, e) { say("err", prefix + " Please pass this error to the team: " + esc(e.message || JSON.stringify(e))); }
+    function dayNum(d) { return Math.floor(new Date(d + "T00:00:00").getTime() / 86400000); }
+    var today = dayNum(new Date().toISOString().slice(0, 10));
+    function pending(g) { return g.status !== "Resolved"; }
+    function left(g) { return g.due_date ? dayNum(g.due_date) - today : null; }
+    function overdue(g) { return pending(g) && left(g) !== null && left(g) < 0; }
+    function due(g) { return pending(g) && left(g) !== null && left(g) >= 0 && left(g) <= 5; }
+
+    try { db = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY); }
+    catch (e) { errText("The database settings are not ready.", e); }
+
+    async function load() {
+      if (!db) return;
+      try {
+        var out = [], from = 0;
+        while (true) {
+          var r = await db.from("grievances").select("*").order("created_at", { ascending: false }).range(from, from + 999);
+          if (r.error) throw r.error;
+          out = out.concat(r.data);
+          if (r.data.length < 1000) break;
+          from += 1000;
+        }
+        all = out;
+        fillSelect("officer", "All officers", all.map(function (g) { return g.assigned_officer; }));
+        fillSelect("area", "All areas", all.map(function (g) { return g.location; }));
+        render();
+      } catch (e) { errText("Sorry, the grievances could not load.", e); }
+    }
+    function fillSelect(id, first, values) {
+      var el = document.getElementById(id), keep = el.value;
+      var uniq = values.filter(function (v, i) { return v && values.indexOf(v) === i; }).sort();
+      el.innerHTML = "<option value=''>" + first + "</option>" +
+        uniq.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
+      el.value = keep;
+    }
+
+    function matches(g) {
+      var q = document.getElementById("q").value.trim().toLowerCase();
+      if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
+      var o = document.getElementById("officer").value, c = document.getElementById("category").value, a = document.getElementById("area").value;
+      if (o && g.assigned_officer !== o) return false;
+      if (c && g.category !== c) return false;
+      if (a && g.location !== a) return false;
+      var v = document.getElementById("view").value;
+      return v === "all" || (v === "new" && pending(g) && !g.assigned_officer) || (v === "pending" && pending(g)) ||
+        (v === "due" && due(g)) || (v === "overdue" && overdue(g)) ||
+        (v === "escalated" && pending(g) && g.escalation_level > 1) || (v === "disposed" && !pending(g));
+    }
+
+    function render() {
+      var t = [
+        ["New", all.filter(function (g) { return pending(g) && !g.assigned_officer; }).length, "blue"],
+        ["Pending", all.filter(pending).length, "amber"],
+        ["Due soon", all.filter(due).length, "amber"],
+        ["Overdue", all.filter(overdue).length, "red"],
+        ["Escalated", all.filter(function (g) { return pending(g) && g.escalation_level > 1; }).length, "red"],
+        ["Disposed", all.filter(function (g) { return !pending(g); }).length, "green"]
+      ];
+      document.getElementById("tiles").innerHTML = t.map(function (x) {
+        return "<div class='tile " + x[2] + "'><b>" + x[1] + "</b>" + x[0] + "</div>";
+      }).join("");
+
+      var rank = { High: 0, Medium: 1, Low: 2 };
+      var list = all.filter(matches).sort(function (a, b) {
+        if (pending(a) !== pending(b)) return pending(a) ? -1 : 1;
+        var la = left(a) === null ? 999 : left(a), lb = left(b) === null ? 999 : left(b);
+        return (la - lb) || (rank[a.urgency] - rank[b.urgency]);
+      });
+      document.getElementById("list").innerHTML = list.length ? list.slice(0, 100).map(function (g) {
+        var l = left(g), col = !pending(g) ? "p-green" : l === null ? "p-grey" : l < 0 ? "p-red" : l <= 5 ? "p-amber" : "p-green";
+        var dueTxt = !pending(g) ? "Disposed" : l === null ? "No due date" : l < 0 ? "Overdue by " + (-l) + " days" : l + " days left";
+        var action = !pending(g) ? "" : !g.assigned_officer ? "Action: assign an officer" : overdue(g) ? "Action: reply now" : "";
+        return "<div class='card item' style='border-color:" + (col === "p-red" ? "#b91c1c" : col === "p-amber" ? "#d97706" : "#047857") + "'>" +
+          "<h3>" + esc(g.grievance_no) + " - " + esc(g.subject) + "</h3>" +
+          "<div class='small'>" + esc(g.complainant_name) + " | " + esc(g.location) + " | " + esc(g.category) + "</div>" +
+          "<p><span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-grey'>" + esc(g.urgency) + "</span>" +
+          "<span class='pill p-blue'>" + esc(g.status) + "</span><span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" +
+          (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") + "</p>" +
+          "<div class='small'>Officer: " + esc(g.assigned_officer || "Not assigned") + (action ? " | <b>" + action + "</b>" : "") + "</div>" +
+          "<button class='grey' data-id='" + esc(g.id) + "'>Open and update</button></div>";
+      }).join("") : "<div class='card'>No grievances match.</div>";
+    }
+
+    var LEVELS = ["Level 1 - Dealing Officer", "Level 2 - Section / Department Head", "Level 3 - Area Head / Competent Authority", "Level 4 - Corporate / HQ Monitoring"];
+    function openEditor(id) {
+      var g = all.find(function (x) { return x.id === id; });
+      if (!g) return;
+      openId = id;
+      var ed = document.getElementById("editor");
+      ed.hidden = false;
+      ed.innerHTML = "<h2>" + esc(g.grievance_no) + "</h2>" +
+        "<p class='small'>" + esc(g.complainant_name) + " (" + esc(g.stakeholder_category) + "), contact: " + esc(g.contact) +
+        (g.neis_no ? ", NEIS: " + esc(g.neis_no) : "") + "<br>Received: " + esc(g.submission_date) + " | Department: " + esc(g.department) +
+        " | Due: " + esc(g.due_date) + "</p><p><b>" + esc(g.subject) + "</b></p><pre>" + esc(g.description) + "</pre>" +
+        "<label>History and remarks</label><pre>" + esc(g.remarks || "No remarks yet.") + "</pre>" +
+        "<label for='e_off'>Responsible officer (made-up name and designation)</label><input id='e_off' value='" + esc(g.assigned_officer || "") + "'>" +
+        "<label for='e_by'>Your name and designation (made up) *</label><input id='e_by'>" +
+        "<label for='e_status'>Status</label><select id='e_status'>" +
+        ["Open", "In progress", "Resolved"].map(function (s) { return "<option" + (s === g.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        "<label for='e_urg'>Urgency</label><select id='e_urg'>" +
+        ["Low", "Medium", "High"].map(function (s) { return "<option" + (s === g.urgency ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        "<label for='e_lvl'>Escalation level</label><select id='e_lvl'>" +
+        LEVELS.map(function (s, i) { return "<option value='" + (i + 1) + "'" + (i + 1 === g.escalation_level ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
+        "<label for='e_note'>New remark / action taken *</label><textarea id='e_note'></textarea>" +
+        "<button id='save'>Save update</button><button class='grey' id='close'>Close without saving</button>";
+      document.getElementById("close").onclick = function () { ed.hidden = true; };
+      document.getElementById("save").onclick = save;
+      ed.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function save() {
+      var g = all.find(function (x) { return x.id === openId; });
+      var by = document.getElementById("e_by").value.trim(), note = document.getElementById("e_note").value.trim();
+      if (!by || !note) { say("err", "Please fill in your name and a remark before saving."); return; }
+      var status = document.getElementById("e_status").value, lvl = parseInt(document.getElementById("e_lvl").value, 10);
+      var off = document.getElementById("e_off").value.trim() || null, urg = document.getElementById("e_urg").value;
+      var changes = [];
+      if (off !== g.assigned_officer) changes.push("officer: " + (off || "none"));
+      if (status !== g.status) changes.push("status: " + g.status + " to " + status);
+      if (lvl !== g.escalation_level) changes.push("level: " + g.escalation_level + " to " + lvl);
+      if (urg !== g.urgency) changes.push("urgency: " + g.urgency + " to " + urg);
+      var upd = { assigned_officer: off, status: status, urgency: urg, escalation_level: lvl };
+      if (g.status === "Resolved" && status !== "Resolved") { upd.reopened = true; upd.resolved_at = null; changes.push("REOPENED"); }
+      if (status === "Resolved" && g.status !== "Resolved") upd.resolved_at = new Date().toISOString();
+      var stamp = new Date().toLocaleString();
+      upd.remarks = (g.remarks ? g.remarks + "\n\n" : "") + "[" + stamp + "] " + by + ": " + note +
+        (changes.length ? " (" + changes.join("; ") + ")" : "");
+      var btn = document.getElementById("save"); btn.disabled = true; btn.textContent = "Saving...";
+      try {
+        var r = await db.from("grievances").update(upd).eq("id", g.id).select().single();
+        if (r.error) throw r.error;
+        all[all.indexOf(g)] = r.data;
+        document.getElementById("editor").hidden = true;
+        say("ok", "Saved. " + esc(g.grievance_no) + " is updated.");
+        fillSelect("officer", "All officers", all.map(function (x) { return x.assigned_officer; }));
+        render();
+      } catch (e) { errText("Sorry, the update could not be saved.", e); btn.disabled = false; btn.textContent = "Save update"; }
+    }
+
+    document.getElementById("list").addEventListener("click", function (ev) {
+      var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
+      if (id) openEditor(id);
+    });
+    ["q", "view", "officer", "category", "area"].forEach(function (id) {
+      document.getElementById(id).addEventListener("input", render);
+    });
+    load();
+  </script>
+</body>
+</html>
