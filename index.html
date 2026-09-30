@@ -191,6 +191,25 @@
     var qid = new URLSearchParams(location.search).get("id");
     if (qid) { document.getElementById("tid").value = qid.trim().toUpperCase(); track(qid.trim().toUpperCase()); document.getElementById("track").scrollIntoView(); }
 
+    var skipCheck = false;
+    function likeSafe(t) { return t.replace(/[\\%_]/g, "\\$&"); }
+    // If the check itself fails, we do not block the complainant: the grievance is still saved.
+    async function findDuplicates(row) {
+      try {
+        var found = {}, base = function () {
+          return db.from("grievances").select("grievance_no,subject,status,submission_date")
+            .eq("category", row.category).neq("status", "Resolved").limit(5);
+        };
+        var a = await base().ilike("contact", likeSafe(row.contact));
+        (a.data || []).forEach(function (d) { found[d.grievance_no] = d; });
+        if (row.neis_no) {
+          var b = await base().ilike("neis_no", likeSafe(row.neis_no));
+          (b.data || []).forEach(function (d) { found[d.grievance_no] = d; });
+        }
+        return Object.keys(found).map(function (k) { return found[k]; });
+      } catch (e) { return []; }
+    }
+
     form.addEventListener("submit", async function (ev) {
       ev.preventDefault();
       if (!db) return;
@@ -206,6 +225,20 @@
           description: val("description"), urgency: val("urgency"),
           preferred_mode: val("mode")
         };
+        // Duplicate check: same contact or NEIS No., same category, still not resolved
+        if (!skipCheck) {
+          var dups = await findDuplicates(row);
+          if (dups.length) {
+            show("err", "<b>This may be a duplicate.</b> We already have an open grievance in the same category from the same contact or NEIS No.:<ul>" +
+              dups.map(function (d) {
+                return "<li><b>" + esc(d.grievance_no) + "</b> - " + esc(d.subject) + " (" + esc(d.status) + ", received " + esc(d.submission_date) + ")</li>";
+              }).join("") + "</ul>You can track it with the box below. If your matter is different, press the button.<br>" +
+              "<button type='button' id='force' style='background:#374151'>This is a new matter - submit anyway</button>");
+            document.getElementById("force").onclick = function () { skipCheck = true; form.requestSubmit(); };
+            btn.disabled = false; btn.textContent = "Submit grievance";
+            return;
+          }
+        }
         var res = await db.from("grievances").insert(row).select().single();
         if (res.error) throw res.error;
         var g = res.data;
@@ -213,6 +246,7 @@
           esc(g.grievance_no) + "</div>Please note it down. Department: " + esc(g.department) +
           ". Reply due by: " + esc(g.due_date) + ".");
         form.reset();
+        skipCheck = false;
       } catch (e) {
         show("err", "Sorry, we could not save your grievance. Please pass this error to the team: " +
           esc(e.message || JSON.stringify(e)));

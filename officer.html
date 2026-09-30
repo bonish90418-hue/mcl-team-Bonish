@@ -67,6 +67,7 @@
             <option value="overdue">Overdue</option>
             <option value="escalated">Escalated</option>
             <option value="disposed">Disposed</option>
+            <option value="dup">Possible duplicates</option>
             <option value="alert">Alert needed (due soon, overdue or escalated)</option>
           </select></div>
         <div><label for="officer">Responsible officer</label><select id="officer"></select></div>
@@ -134,6 +135,16 @@
       el.value = keep;
     }
 
+    // Possible duplicate: another pending grievance, same category, same contact or same NEIS No.
+    function dupKey(g) { return (g.contact || "").trim().toLowerCase(); }
+    function isDup(g) {
+      if (!pending(g)) return false;
+      return all.some(function (o) {
+        return o.id !== g.id && pending(o) && o.category === g.category &&
+          ((dupKey(o) && dupKey(o) === dupKey(g)) || (o.neis_no && g.neis_no && o.neis_no.trim().toLowerCase() === g.neis_no.trim().toLowerCase()));
+      });
+    }
+
     function matches(g) {
       var q = document.getElementById("q").value.trim().toLowerCase();
       if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
@@ -149,7 +160,7 @@
       return v === "all" || (v === "new" && pending(g) && !g.assigned_officer) || (v === "pending" && pending(g)) ||
         (v === "due" && due(g)) || (v === "overdue" && overdue(g)) ||
         (v === "escalated" && pending(g) && g.escalation_level > 1) || (v === "disposed" && !pending(g)) ||
-        (v === "alert" && (due(g) || overdue(g) || (pending(g) && g.escalation_level > 1)));
+        (v === "dup" && isDup(g)) || (v === "alert" && (due(g) || overdue(g) || (pending(g) && g.escalation_level > 1)));
     }
 
     function render() {
@@ -181,7 +192,8 @@
           "<p><span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-grey'>" + esc(g.urgency) + "</span>" +
           "<span class='pill p-blue'>" + esc(g.status) + "</span><span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" +
           (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
-          ((g.remarks || "").indexOf("SYSTEM: automatically escalated") >= 0 ? "<span class='pill p-red'>Auto-escalated</span>" : "") + "</p>" +
+          ((g.remarks || "").indexOf("SYSTEM: automatically escalated") >= 0 ? "<span class='pill p-red'>Auto-escalated</span>" : "") +
+          (isDup(g) ? "<span class='pill p-amber'>Possible duplicate</span>" : "") + "</p>" +
           "<div class='small'>Officer: " + esc(g.assigned_officer || "Not assigned") + (action ? " | <b>" + action + "</b>" : "") + "</div>" +
           "<button class='grey' data-id='" + esc(g.id) + "'>Open and update</button></div>";
       }).join("") : "<div class='card'>No grievances match.</div>";
