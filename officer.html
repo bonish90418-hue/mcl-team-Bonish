@@ -53,6 +53,8 @@
     <div class="card">
       <label for="q">Search (Grievance ID, name, NEIS No., subject)</label>
       <input id="q" placeholder="e.g. MCL-2026-00001">
+      <label for="neis">NEIS No.</label>
+      <input id="neis" placeholder="Type the NEIS No. (part of it also works)" inputmode="text">
       <div class="grid">
         <div><label for="view">Show</label>
           <select id="view">
@@ -133,6 +135,8 @@
     function matches(g) {
       var q = document.getElementById("q").value.trim().toLowerCase();
       if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
+      var n = document.getElementById("neis").value.trim().toLowerCase();
+      if (n && (g.neis_no || "").toLowerCase().indexOf(n) < 0) return false;
       var o = document.getElementById("officer").value, c = document.getElementById("category").value, a = document.getElementById("area").value;
       if (o && g.assigned_officer !== o) return false;
       if (c && g.category !== c) return false;
@@ -169,7 +173,7 @@
         var action = !pending(g) ? "" : !g.assigned_officer ? "Action: assign an officer" : overdue(g) ? "Action: reply now" : "";
         return "<div class='card item' style='border-color:" + (col === "p-red" ? "#b91c1c" : col === "p-amber" ? "#d97706" : "#047857") + "'>" +
           "<h3>" + esc(g.grievance_no) + " - " + esc(g.subject) + "</h3>" +
-          "<div class='small'>" + esc(g.complainant_name) + " | " + esc(g.location) + " | " + esc(g.category) + "</div>" +
+          "<div class='small'>" + esc(g.complainant_name) + (g.neis_no ? " (NEIS " + esc(g.neis_no) + ")" : "") + " | " + esc(g.location) + " | " + esc(g.category) + "</div>" +
           "<p><span class='pill " + col + "'>" + dueTxt + "</span><span class='pill p-grey'>" + esc(g.urgency) + "</span>" +
           "<span class='pill p-blue'>" + esc(g.status) + "</span><span class='pill p-grey'>Level " + esc(g.escalation_level) + "</span>" +
           (g.reopened ? "<span class='pill p-amber'>Reopened</span>" : "") +
@@ -279,7 +283,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     load();
