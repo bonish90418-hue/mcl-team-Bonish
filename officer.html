@@ -55,6 +55,10 @@
       <input id="q" placeholder="e.g. MCL-2026-00001">
       <label for="cname">Complainant name</label>
       <input id="cname" placeholder="Type the name (part of it also works)">
+      <div class="grid">
+        <div><label for="dfrom">Received from (date)</label><input type="date" id="dfrom"></div>
+        <div><label for="dto">Received up to (date)</label><input type="date" id="dto"></div>
+      </div>
       <label for="otext">Responsible officer (type a name)</label>
       <input id="otext" placeholder="Type the officer's name (part of it also works)">
       <label for="atext">Area (type a name)</label>
@@ -152,6 +156,9 @@
     function matches(g) {
       var q = document.getElementById("q").value.trim().toLowerCase();
       if (q && [g.grievance_no, g.complainant_name, g.neis_no, g.subject].join(" ").toLowerCase().indexOf(q) < 0) return false;
+      var df = document.getElementById("dfrom").value, dt = document.getElementById("dto").value;
+      if (df && g.submission_date < df) return false;
+      if (dt && g.submission_date > dt) return false;
       var ot = document.getElementById("otext").value.trim().toLowerCase();
       if (ot && (g.assigned_officer || "").toLowerCase().indexOf(ot) < 0) return false;
       var at = document.getElementById("atext").value.trim().toLowerCase();
@@ -370,7 +377,7 @@
       var id = ev.target.getAttribute && ev.target.getAttribute("data-id");
       if (id) openEditor(id);
     });
-    ["q", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
+    ["q", "dfrom", "dto", "otext", "atext", "cname", "neis", "view", "officer", "category", "area"].forEach(function (id) {
       document.getElementById(id).addEventListener("input", render);
     });
     // A link like officer.html?id=MCL-2026-00001 (from the dashboard) fills the search box
